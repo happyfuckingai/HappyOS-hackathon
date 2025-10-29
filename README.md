@@ -287,14 +287,6 @@ HappyOS-hackathon/
 
 ---
 
-## 🎥 Demo Video & Presentation
-
-- **[Live Demo Video](https://youtu.be/demo-link)** - 3-minute system demonstration
-- **[Architecture Walkthrough](https://youtu.be/arch-link)** - Technical deep dive
-- **[Business Case Presentation](https://slides.com/happyos-hackathon)** - ROI analysis
-
----
-
 ## 🏆 Hackathon Submission Details
 
 ### Innovation Categories
