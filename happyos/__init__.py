@@ -22,10 +22,12 @@ from .exceptions import (
     SecurityError,
     ComplianceError,
     ServiceUnavailableError,
+    CommunicationError,
+    ValidationError,
 )
 
 # Core agent framework
-from .agents import BaseAgent, AgentConfig, MCPServerManager, create_agent_config
+from .agents import BaseAgent, AgentConfig, AgentState, MCPServerManager, create_agent_config
 from .communication import MCPClient, MCPProtocol, A2AClient, MCPUIHubClient
 from .security import AuthProvider, TenantIsolation, MessageSigner
 from .observability import get_logger, MetricsCollector, TracingManager
@@ -53,10 +55,13 @@ __all__ = [
     "SecurityError",
     "ComplianceError",
     "ServiceUnavailableError",
+    "CommunicationError",
+    "ValidationError",
     
     # Core framework
     "BaseAgent",
     "AgentConfig",
+    "AgentState",
     "MCPServerManager",
     "create_agent_config",
     

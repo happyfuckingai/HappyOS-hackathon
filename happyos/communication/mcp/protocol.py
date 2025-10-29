@@ -12,7 +12,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, Any, Optional, Callable, Union
 
-from ...config import Config
+from ...config import SDKConfig
 from ...exceptions import CommunicationError, ValidationError
 from ...security.signing import MCPMessageSigner
 
@@ -177,7 +177,7 @@ class MCPProtocol:
     Handles message serialization, validation, signing, and routing.
     """
     
-    def __init__(self, config: Config):
+    def __init__(self, config: SDKConfig):
         """Initialize protocol.
         
         Args:

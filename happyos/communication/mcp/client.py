@@ -12,7 +12,7 @@ from datetime import datetime
 
 from .protocol import MCPProtocol, MCPMessage, MCPHeaders, MCPResponse
 from .tools import MCPTool, MCPToolRegistry
-from ...config import Config
+from ...config import SDKConfig
 from ...exceptions import CommunicationError, ValidationError
 from ...security.tenant import TenantContext
 from ...observability.logging import get_logger
@@ -43,7 +43,7 @@ class MCPClient:
         ... )
     """
     
-    def __init__(self, agent_id: str, config: Config):
+    def __init__(self, agent_id: str, config: SDKConfig):
         """Initialize MCP client.
         
         Args:

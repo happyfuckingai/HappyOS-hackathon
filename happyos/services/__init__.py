@@ -1,25 +1,11 @@
 """
-HappyOS Service Facades
+HappyOS Services
 
-Unified AWS service facades with built-in circuit breakers, retry logic,
-and intelligent fallback patterns for maximum uptime.
+Unified service facades for AWS and local services.
 """
 
-from .facades import UnifiedServiceFacades, ServiceFacade
-from .unified import (
-    DatabaseService,
-    StorageService, 
-    ComputeService,
-    SearchService,
-    MessagingService,
-)
+from .facades import UnifiedServiceFacades
 
 __all__ = [
     "UnifiedServiceFacades",
-    "ServiceFacade",
-    "DatabaseService",
-    "StorageService",
-    "ComputeService", 
-    "SearchService",
-    "MessagingService",
 ]

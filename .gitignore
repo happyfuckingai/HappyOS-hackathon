@@ -16,7 +16,7 @@ venv/
 env/
 .venv/
 ENV/
-
+frontend/public/Meetmind.mp4
 # Testfiler
 test_*.py
 *_test.py
@@ -44,9 +44,6 @@ node_modules/
 frontend/.next/
 frontend/out/
 frontend/build/
-frontend/.env.local
-frontend/.env.development
-frontend/.env.production
 
 # Docker & tillfälliga filer
 *.pid
@@ -99,8 +96,12 @@ old/
 legacy/
 .roo/
 .vscode/
-agents/
 .specify/
 .anbalysis/
 .gemini/
 data/
+.kiro/
+.analysis/
+happyos/
+happyos-sdk/
+__pycache__/

@@ -90,3 +90,23 @@ class RetryExhaustedError(HappyOSSDKError):
     def __init__(self, message: str, attempts: int = None, **kwargs):
         super().__init__(message, error_code="RETRY_EXHAUSTED", **kwargs)
         self.attempts = attempts
+
+
+class CommunicationError(HappyOSSDKError):
+    """Communication protocol errors."""
+    
+    def __init__(self, message: str, protocol: str = None, **kwargs):
+        super().__init__(message, error_code="COMMUNICATION_ERROR", **kwargs)
+        self.protocol = protocol
+
+
+class ValidationError(HappyOSSDKError):
+    """Data validation errors."""
+    
+    def __init__(self, message: str, field_name: str = None, **kwargs):
+        super().__init__(message, error_code="VALIDATION_ERROR", **kwargs)
+        self.field_name = field_name
+
+
+# Alias for backward compatibility
+HappyOSError = HappyOSSDKError
