@@ -231,8 +231,8 @@ async def combine_agent_results(meeting_data):
 # Production deployment
 docker-compose -f docker-compose.prod.yml up -d
 
-# Development mode
-make dev
+# Hackathon demo mode
+make hackathon-setup
 ```
 
 ### 2. Test Cross-Agent Workflow
