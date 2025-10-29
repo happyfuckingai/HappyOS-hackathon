@@ -1,0 +1,171 @@
+{
+  "test_run_id": "migration_test_1761324670",
+  "start_time": "2025-10-24T18:51:10.640986",
+  "tenant_id": "test_tenant",
+  "suite_results": [
+    {
+      "success": false,
+      "total_tests": 4,
+      "passed_tests": 3,
+      "failed_tests": 1,
+      "test_results": [
+        {
+          "test_name": "validate_data_migration_integrity_success",
+          "success": false,
+          "error": "'method' object has no attribute 'return_value'"
+        },
+        {
+          "test_name": "validate_data_migration_integrity_failure",
+          "success": true,
+          "message": "Test passed"
+        },
+        {
+          "test_name": "validate_record_counts",
+          "success": true,
+          "message": "Test passed"
+        },
+        {
+          "test_name": "validate_record_counts_failure",
+          "success": true,
+          "message": "Test passed"
+        }
+      ],
+      "suite_name": "Data Migration Integrity"
+    },
+    {
+      "success": false,
+      "total_tests": 2,
+      "passed_tests": 0,
+      "failed_tests": 2,
+      "test_results": [
+        {
+          "test_name": "convert_terraform_to_cdk_success",
+          "success": false,
+          "error": "'MockInfrastructureConverter' object has no attribute 'database'"
+        },
+        {
+          "test_name": "convert_cloud_run_to_lambda",
+          "success": false,
+          "error": "'MockInfrastructureConverter' object has no attribute '_convert_cloud_run_to_lambda'"
+        }
+      ],
+      "suite_name": "Infrastructure Conversion"
+    },
+    {
+      "success": true,
+      "total_tests": 4,
+      "passed_tests": 4,
+      "failed_tests": 0,
+      "test_results": [
+        {
+          "test_name": "validate_module_isolation_success",
+          "success": true,
+          "message": "Test passed"
+        },
+        {
+          "test_name": "import_isolation_validation",
+          "success": true,
+          "message": "Test passed"
+        },
+        {
+          "test_name": "a2a_communication_isolation",
+          "success": true,
+          "message": "Test passed"
+        },
+        {
+          "test_name": "database_isolation",
+          "success": true,
+          "message": "Test passed"
+        }
+      ],
+      "suite_name": "Module Isolation"
+    },
+    {
+      "success": true,
+      "total_tests": 4,
+      "passed_tests": 4,
+      "failed_tests": 0,
+      "test_results": [
+        {
+          "test_name": "cross_module_workflows_success",
+          "success": true,
+          "message": "Test passed"
+        },
+        {
+          "test_name": "financial_compliance_workflow",
+          "success": true,
+          "message": "Test passed"
+        },
+        {
+          "test_name": "financial_reporting_workflow",
+          "success": true,
+          "message": "Test passed"
+        },
+        {
+          "test_name": "meeting_financial_analysis_workflow",
+          "success": true,
+          "message": "Test passed"
+        }
+      ],
+      "suite_name": "Cross-Module Workflows"
+    },
+    {
+      "success": false,
+      "total_tests": 3,
+      "passed_tests": 2,
+      "failed_tests": 1,
+      "test_results": [
+        {
+          "test_name": "migrate_trading_analytics_success",
+          "success": true,
+          "message": "Test passed"
+        },
+        {
+          "test_name": "migrate_portfolio_data_success",
+          "success": true,
+          "message": "Test passed"
+        },
+        {
+          "test_name": "validate_migration_integrity",
+          "success": false,
+          "error": ""
+        }
+      ],
+      "suite_name": "Financial Data Migration"
+    },
+    {
+      "success": true,
+      "total_tests": 1,
+      "passed_tests": 1,
+      "failed_tests": 0,
+      "test_results": [
+        {
+          "test_name": "comprehensive_validation_suite_success",
+          "success": true,
+          "message": "Test passed"
+        }
+      ],
+      "suite_name": "Comprehensive Validation"
+    },
+    {
+      "success": false,
+      "total_tests": 1,
+      "passed_tests": 0,
+      "failed_tests": 1,
+      "test_results": [
+        {
+          "test_name": "end_to_end_migration_workflow",
+          "success": false,
+          "error": "'MockGCPToAWSMigrator' object has no attribute 'database'"
+        }
+      ],
+      "suite_name": "End-to-End Integration"
+    }
+  ],
+  "overall_success": false,
+  "total_tests": 19,
+  "passed_tests": 14,
+  "failed_tests": 5,
+  "end_time": "2025-10-24T18:51:10.660457",
+  "duration_seconds": 0.019474
+}

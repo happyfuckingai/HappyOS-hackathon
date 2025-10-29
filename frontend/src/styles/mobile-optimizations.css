@@ -1,0 +1,290 @@
+/* Mobile Optimizations CSS */
+
+/* CSS Custom Properties for responsive design */
+:root {
+  --viewport-width: 100vw;
+  --viewport-height: 100vh;
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --vh: 1vh; /* Fallback for iOS Safari */
+}
+
+/* Touch-optimized interactions */
+.touch-optimized {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.touch-optimized button,
+.touch-optimized [role="button"],
+.touch-optimized input,
+.touch-optimized textarea,
+.touch-optimized select {
+  -webkit-user-select: auto;
+  -moz-user-select: auto;
+  -ms-user-select: auto;
+  user-select: auto;
+}
+
+/* Mobile-specific button styling */
+@media (max-width: 767px) {
+  button,
+  [role="button"] {
+    min-height: 44px; /* iOS recommended touch target size */
+    min-width: 44px;
+    padding: 12px 16px;
+  }
+  
+  /* Larger touch targets for mobile */
+  .fab-button {
+    width: 56px;
+    height: 56px;
+  }
+  
+  /* Mobile-friendly form inputs */
+  input,
+  textarea,
+  select {
+    min-height: 44px;
+    font-size: 16px; /* Prevent zoom on iOS */
+    padding: 12px 16px;
+  }
+}
+
+/* Tablet-specific optimizations */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .is-tablet .meeting-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .is-tablet .side-participants {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 200px;
+    z-index: 40;
+  }
+}
+
+/* Mobile layout adjustments */
+.is-mobile {
+  /* Stack layout on mobile */
+  .meeting-grid {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: calc(var(--vh, 1vh) * 100);
+  }
+  
+  .video-area {
+    flex: 1;
+    min-height: 0;
+  }
+  
+  .side-participants {
+    height: auto;
+    max-height: 30vh;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  /* Mobile FAB positioning */
+  .fab-menu {
+    bottom: calc(20px + var(--safe-area-inset-bottom));
+    right: calc(20px + var(--safe-area-inset-right));
+  }
+  
+  /* Mobile sheet adjustments */
+  .sheet-content {
+    max-height: 80vh;
+    max-height: calc(var(--vh, 1vh) * 80);
+  }
+}
+
+/* Portrait orientation optimizations */
+.is-portrait {
+  /* Adjust layout for portrait mode */
+  .landing-features {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .auth-container {
+    padding: 20px;
+  }
+  
+  .lobby-cards {
+    flex-direction: column;
+    gap: 20px;
+  }
+}
+
+/* Landscape orientation optimizations */
+.is-landscape.is-mobile {
+  /* Optimize for mobile landscape */
+  .meeting-grid {
+    flex-direction: row;
+  }
+  
+  .video-area {
+    flex: 2;
+  }
+  
+  .side-participants {
+    flex: 1;
+    max-width: 300px;
+    height: 100vh;
+    height: calc(var(--vh, 1vh) * 100);
+    border-top: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Reduced motion for performance */
+.reduce-motion * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* iOS Safari specific fixes */
+@supports (-webkit-appearance: none) {
+  .ios-safari-fix {
+    /* Fix for iOS Safari viewport height */
+    height: 100vh;
+    height: calc(var(--vh, 1vh) * 100);
+  }
+  
+  /* Fix for iOS Safari input zoom */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* Chrome mobile specific fixes */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  .chrome-mobile-fix input:focus {
+    transform: translateZ(0); /* Force hardware acceleration */
+  }
+}
+
+/* Firefox mobile specific fixes */
+@-moz-document url-prefix() {
+  .firefox-mobile-fix {
+    /* Firefox-specific mobile optimizations */
+  }
+}
+
+/* High DPI display optimizations */
+@media (-webkit-min-device-pixel-ratio: 2),
+       (min-resolution: 192dpi) {
+  .high-dpi {
+    /* Optimizations for high DPI displays */
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* Dark mode optimizations for mobile */
+@media (prefers-color-scheme: dark) {
+  .is-mobile {
+    /* Darker backgrounds for better battery life on OLED */
+    background-color: #000000;
+  }
+}
+
+/* Accessibility improvements for mobile */
+@media (prefers-reduced-motion: reduce) {
+  .reduce-motion-preference * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus improvements for keyboard navigation on mobile */
+.is-mobile *:focus-visible {
+  outline: 2px solid #ff6a3d;
+  outline-offset: 2px;
+}
+
+/* Scroll optimizations */
+.mobile-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+}
+
+/* Prevent horizontal scroll on mobile */
+.is-mobile {
+  overflow-x: hidden;
+  width: 100vw;
+  max-width: 100vw;
+}
+
+/* Mobile-friendly glassmorphism adjustments */
+.is-mobile .glass-panel {
+  backdrop-filter: blur(8px); /* Reduced blur for performance */
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Touch-friendly spacing */
+.is-mobile .space-y-4 > * + * {
+  margin-top: 1.5rem; /* Increased spacing for touch */
+}
+
+.is-mobile .space-y-2 > * + * {
+  margin-top: 1rem;
+}
+
+/* Mobile-specific utility classes */
+.mobile-hidden {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .mobile-hidden {
+    display: block;
+  }
+  
+  .desktop-hidden {
+    display: none;
+  }
+}
+
+/* Safe area padding utilities */
+.safe-area-padding {
+  padding-top: var(--safe-area-inset-top);
+  padding-bottom: var(--safe-area-inset-bottom);
+  padding-left: var(--safe-area-inset-left);
+  padding-right: var(--safe-area-inset-right);
+}
+
+.safe-area-margin {
+  margin-top: var(--safe-area-inset-top);
+  margin-bottom: var(--safe-area-inset-bottom);
+  margin-left: var(--safe-area-inset-left);
+  margin-right: var(--safe-area-inset-right);
+}
+
+/* Performance optimizations for mobile */
+.is-mobile .will-change-transform {
+  will-change: transform;
+}
+
+.is-mobile .gpu-accelerated {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}

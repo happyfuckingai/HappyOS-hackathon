@@ -1,0 +1,272 @@
+# CI/CD Pipeline for the multi-user meeting system
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.github/ISSUE_TEMPLATE/**'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ${{ github.repository }}/backend
+  FRONTEND_IMAGE: ${{ github.repository }}/frontend
+
+jobs:
+  # Quality checks and testing
+  quality-checks:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: |
+          npm run lint
+          npm run lint:backend
+
+      - name: Run tests
+        run: |
+          npm run test
+          npm run test:backend
+        env:
+          CI: true
+
+      - name: Run security audit
+        run: npm audit --audit-level=moderate
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # Build and push Docker images
+  build-and-push:
+    name: Build and Push Images
+    runs-on: ubuntu-latest
+    needs: quality-checks
+    outputs:
+      backend-image-tag: ${{ steps.meta.outputs.tags }}
+      frontend-image-tag: ${{ steps.frontend-meta.outputs.tags }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for backend
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract metadata for frontend
+        id: frontend-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ steps.frontend-meta.outputs.tags }}
+          labels: ${{ steps.frontend-meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            REACT_APP_API_URL=${{ secrets.REACT_APP_API_URL }}
+            REACT_APP_WS_URL=${{ secrets.REACT_APP_WS_URL }}
+            REACT_APP_LIVEKIT_URL=${{ secrets.REACT_APP_LIVEKIT_URL }}
+
+  # Deploy to staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG_STAGING }}
+
+      - name: Deploy to Kubernetes
+        run: |
+          # Update image tags in k8s manifests
+          sed -i 's|BACKEND_IMAGE_TAG|${{ needs.build-and-push.outputs.backend-image-tag }}|g' k8s/staging/*.yaml
+          sed -i 's|FRONTEND_IMAGE_TAG|${{ needs.build-and-push.outputs.frontend-image-tag }}|g' k8s/staging/*.yaml
+
+          # Apply Kubernetes manifests
+          kubectl apply -f k8s/staging/namespace.yaml
+          kubectl apply -f k8s/staging/configmap.yaml
+          kubectl apply -f k8s/staging/secrets.yaml
+          kubectl apply -f k8s/staging/
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/backend -n meeting-system-staging --timeout=600s
+          kubectl rollout status deployment/frontend -n meeting-system-staging --timeout=600s
+
+      - name: Run smoke tests
+        run: |
+          # Wait for services to be ready
+          kubectl wait --for=condition=available --timeout=300s deployment/backend -n meeting-system-staging
+          kubectl wait --for=condition=available --timeout=300s deployment/frontend -n meeting-system-staging
+
+          # Run basic health checks
+          curl -f https://staging.meeting.example.com/health
+
+  # Deploy to production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-and-push, deploy-staging]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
+
+      - name: Deploy to Kubernetes
+        run: |
+          # Update image tags in k8s manifests
+          sed -i 's|BACKEND_IMAGE_TAG|${{ needs.build-and-push.outputs.backend-image-tag }}|g' k8s/production/*.yaml
+          sed -i 's|FRONTEND_IMAGE_TAG|${{ needs.build-and-push.outputs.frontend-image-tag }}|g' k8s/production/*.yaml
+
+          # Apply Kubernetes manifests
+          kubectl apply -f k8s/production/namespace.yaml
+          kubectl apply -f k8s/production/configmap.yaml
+          kubectl apply -f k8s/production/secrets.yaml
+          kubectl apply -f k8s/production/
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/backend -n meeting-system-production --timeout=600s
+          kubectl rollout status deployment/frontend -n meeting-system-production --timeout=600s
+
+      - name: Verify deployment
+        run: |
+          # Wait for services to be ready
+          kubectl wait --for=condition=available --timeout=300s deployment/backend -n meeting-system-production
+          kubectl wait --for=condition=available --timeout=300s deployment/frontend -n meeting-system-production
+
+          # Run comprehensive health checks
+          curl -f https://meeting.example.com/health
+          curl -f https://meeting.example.com/api/health
+
+      - name: Post-deployment notifications
+        if: success()
+        run: |
+          # Send notification to Slack/Teams
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"✅ Meeting System deployed to production successfully"}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # Performance and security monitoring
+  monitoring:
+    name: Performance and Security Monitoring
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          urls: |
+            https://meeting.example.com
+          configPath: ./lighthouse/lighthouserc.json
+          uploadArtifacts: true
+
+      - name: Run security scan
+        uses: securecodewarrior/github-action-gosec@master
+        with:
+          args: './...'
+
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.7.0
+        with:
+          target: 'https://meeting.example.com'
+          artifact_name: 'owasp-zap-report'
+
+  # Rollback on failure
+  rollback:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    if: failure() && github.ref == 'refs/heads/main'
+    steps:
+      - name: Rollback deployment
+        run: |
+          echo "Rolling back to previous version"
+          # Implement rollback logic here
+          kubectl rollout undo deployment/backend -n meeting-system-production
+          kubectl rollout undo deployment/frontend -n meeting-system-production
+
+      - name: Notify team
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"❌ Deployment failed, rolled back to previous version"}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}

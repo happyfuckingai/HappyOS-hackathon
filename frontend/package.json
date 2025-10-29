@@ -1,0 +1,73 @@
+{
+  "name": "meetmind-frontend-new",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@livekit/components-react": "^2.0.0",
+    "@livekit/components-styles": "^1.0.0",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-scroll-area": "^1.2.10",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "ajv": "^8.17.1",
+    "axios": "^1.6.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "jwt-decode": "^4.0.0",
+    "livekit-client": "^2.0.0",
+    "lucide-react": "^0.546.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0",
+    "react-scripts": "5.0.1",
+    "tailwind-merge": "^2.6.0"
+  },
+  "devDependencies": {
+    "@axe-core/react": "^4.10.2",
+    "@testing-library/jest-dom": "^6.1.0",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/user-event": "^14.5.0",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "autoprefixer": "^10.4.20",
+    "jest-axe": "^10.0.0",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "dev": "npm start",
+    "build": "react-scripts build",
+    "build:optimized": "npm run build && node scripts/optimize-build.js",
+    "build:meetmind": "node scripts/build-tenant.js meetmind",
+    "build:agentsvea": "node scripts/build-tenant.js agentsvea",
+    "build:feliciasfi": "node scripts/build-tenant.js feliciasfi",
+    "build:all": "npm run build:meetmind && npm run build:agentsvea && npm run build:feliciasfi",
+    "analyze": "node scripts/optimize-build.js",
+    "test": "react-scripts test",
+    "test:integration": "npm test -- --testPathPattern=integration",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}

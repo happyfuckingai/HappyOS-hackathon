@@ -1,0 +1,22 @@
+# CDK Core
+aws-cdk-lib>=2.100.0
+constructs>=10.0.0
+
+# AWS CDK Modules
+aws-cdk.aws-ec2>=2.100.0
+aws-cdk.aws-opensearch>=2.100.0
+aws-cdk.aws-lambda>=2.100.0
+aws-cdk.aws-apigateway>=2.100.0
+aws-cdk.aws-elasticache>=2.100.0
+aws-cdk.aws-cloudwatch>=2.100.0
+aws-cdk.aws-kms>=2.100.0
+aws-cdk.aws-secretsmanager>=2.100.0
+aws-cdk.aws-iam>=2.100.0
+aws-cdk.aws-s3>=2.100.0
+aws-cdk.aws-events>=2.100.0
+aws-cdk.aws-sqs>=2.100.0
+
+# Additional dependencies
+pyyaml>=6.0
+boto3>=1.26.0
+botocore>=1.29.0

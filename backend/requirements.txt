@@ -1,0 +1,49 @@
+# Backend-specific dependencies for FastAPI server with Supabase
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Supabase dependencies
+supabase>=2.0.0
+postgrest>=0.10.0
+
+# Authentication dependencies (using Supabase Auth)
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.0
+slowapi>=0.1.9
+
+# Form data handling
+python-multipart>=0.0.6
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Pydantic settings (for BaseSettings)
+pydantic-settings>=2.0.0
+
+# HTTP client for external APIs
+httpx>=0.25.0
+requests>=2.31.0
+
+# AWS + streaming dependencies
+boto3>=1.35.0
+aioboto3>=12.0.0
+sse-starlette>=2.0.0
+
+# Redis + Async dependencies (T009 Summarizer Worker + Rate Limiting)
+redis[asyncio]>=5.0.0
+aioredis>=2.0.0
+
+# LiveKit dependencies
+livekit>=0.1.0
+livekit-agents>=0.5.0
+
+# Monitoring + Logging + Observability
+prometheus-client>=0.18.0
+structlog>=23.0.0
+sentry-sdk[fastapi]>=1.38.0
+psutil>=5.9.0
+
+# Testing dependencies
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
