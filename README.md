@@ -328,7 +328,7 @@ HappyOS-hackathon/
 
 ## 📄 License
 
-MIT License - Built for AWS AI Agent Global Hackathon 2024
+MIT License - Built for AWS AI Agent Global Hackathon 2025
 
 ---
 
