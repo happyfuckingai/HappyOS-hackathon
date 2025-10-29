@@ -1,12 +1,25 @@
 """
-HappyOS SDK - Thin shared package for agent communication
+HappyOS SDK - Enterprise AI Agent Development Platform
 
-This SDK provides the interface layer between agents and the HappyOS core platform,
-ensuring proper isolation while enabling communication via A2A protocol and service facades.
+A professional SDK for building industry-specific AI agent systems with 
+enterprise-grade security, observability, and resilience patterns.
+
+Example:
+    >>> from happyos_sdk import BaseAgent, MCPClient
+    >>> from happyos_sdk.industries.finance import ComplianceAgent
+    >>> 
+    >>> agent = ComplianceAgent(config)
+    >>> await agent.start()
 """
 
-__version__ = "1.0.0"
+from .version import __version__
 
+# Core imports - using backward compatibility for now
+from .version import __version__
+from .config import SDKConfig, Environment
+from .exceptions import HappyOSSDKError, A2AError, ServiceUnavailableError
+
+# Legacy imports for backward compatibility
 from .a2a_client import (
     A2AClient, A2ATransport, NetworkTransport, InProcessTransport,
     create_a2a_client, create_network_transport, create_inprocess_transport
@@ -24,7 +37,6 @@ from .circuit_breaker import (
     reset_all_circuit_breakers, get_all_circuit_breaker_status
 )
 from .telemetry import TelemetryHooks, MetricsCollector
-from .exceptions import HappyOSSDKError, A2AError, ServiceUnavailableError
 from .error_handling import (
     UnifiedErrorCode, UnifiedError, UnifiedErrorHandler, ErrorRecoveryStrategy,
     get_error_handler
@@ -54,6 +66,13 @@ from .audit_logging import (
     AuditOutcome, AuditContext, ComplianceReport,
     unified_audit_logger, log_mcp_event
 )
+
+# New agent framework (available via subpackages)
+try:
+    from .agents import BaseAgent, AgentConfig, MCPServerAgent
+except ImportError:
+    # Agents not available yet
+    pass
 
 __all__ = [
     # A2A Communication

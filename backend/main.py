@@ -183,6 +183,26 @@ async def lifespan(app: FastAPI):
         # Don't fail startup for agent registry issues
         pass
 
+    # Initialize Domain Agent Registries
+    try:
+        from backend.core.registry.init_registries import initialize_all_registries
+        registry_success = initialize_all_registries()
+        if registry_success:
+            logger.info("Domain agent registries initialized successfully")
+        else:
+            logger.warning("Some domain registries failed to initialize")
+    except ImportError:
+        from core.registry.init_registries import initialize_all_registries
+        registry_success = initialize_all_registries()
+        if registry_success:
+            logger.info("Domain agent registries initialized successfully")
+        else:
+            logger.warning("Some domain registries failed to initialize")
+    except Exception as e:
+        logger.error(f"Failed to initialize domain registries: {e}")
+        # Don't fail startup for registry issues
+        pass
+
     startup_duration = time.time() - startup_start
     logger.info("Backend startup completed", 
                 startup_duration_seconds=startup_duration,

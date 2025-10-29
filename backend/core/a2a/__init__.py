@@ -1,28 +1,17 @@
 """
-A2A Protocol Core - Secure Agent-to-Agent Communication Framework
+HappyOS A2A (Agent-to-Agent) Communication
 
-This module implements the core components of the A2A Protocol for HappyOS,
-providing secure, scalable, and intelligent communication between autonomous agents.
+Unified A2A router and protocol for inter-agent communication
+across all domains using the global agent registry.
 """
 
-from .constants import *
-from .identity import IdentityManager
-from .auth import AuthenticationManager
-from .messaging import MessageManager
-from .transport import TransportLayer
-from .discovery import DiscoveryService
-from .agent import A2AAgent
-from .client import A2AClient
-from .orchestrator import A2AProtocolManager
+from .router import A2ARouter, route_message
+from .protocol import A2AMessage, A2AMessageType, A2AResponse
 
-__version__ = "1.0.0"
 __all__ = [
-    'IdentityManager',
-    'AuthenticationManager',
-    'MessageManager',
-    'TransportLayer',
-    'DiscoveryService',
-    'A2AAgent',
-    'A2AClient',
-    'A2AOrchestrator'
+    "A2ARouter",
+    "route_message", 
+    "A2AMessage",
+    "A2AMessageType",
+    "A2AResponse"
 ]
