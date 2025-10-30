@@ -1,6 +1,6 @@
 # HappyOS - Multi-Agent Operating System 🚀
 
-**AWS AI Agent Global Hackathon 2024 Submission**
+**AWS AI Agent Global Hackathon 2025 Submission**
 
 [![AWS Hackathon](https://img.shields.io/badge/AWS-AI%20Agent%20Hackathon-orange.svg)](https://aws-agent-hackathon.devpost.com)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
