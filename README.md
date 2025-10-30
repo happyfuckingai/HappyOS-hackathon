@@ -312,8 +312,6 @@ HappyOS-hackathon/
 - **DevOps & Infrastructure** - AWS deployment and resilience testing
 - **Business Development** - ROI analysis and market validation
 
-**Contact:** hackathon@happyos.com  
-**Demo Site:** https://demo.happyos.com  
 **GitHub:** https://github.com/happyfuckingai/HappyOS-hackathon
 
 ---
