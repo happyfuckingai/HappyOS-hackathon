@@ -1,6 +1,6 @@
 # HappyOS - Multi-Agent Operating System 🚀
 
-**HappyOS is a self-healing multi-agent operating system built entirely on AWS.
+**HappyOS is a self-healing multi-agent operating system built entirely on AWS.**
 **AWS AI Agent Global Hackathon 2025 Submission**
 
 [![AWS Hackathon](https://img.shields.io/badge/AWS-AI%20Agent%20Hackathon-orange.svg)](https://aws-agent-hackathon.devpost.com)
