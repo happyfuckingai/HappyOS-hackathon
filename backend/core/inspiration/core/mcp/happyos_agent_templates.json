@@ -1,0 +1,242 @@
+{
+  "version": "1.0.0",
+  "description": "HappyOS Agent Templates for Windows AI Studio Integration",
+  "lastUpdated": "2025-09-18T17:00:00.000Z",
+  "templates": {
+    "ResearchAgent": {
+      "name": "Research Agent",
+      "type": "ResearchAgent",
+      "description": "Expert agent for research, data analysis, and information gathering. Specializes in comprehensive analysis and evidence-based reporting.",
+      "visual": {
+        "icon": "🔍",
+        "color": "#4A90E2",
+        "shape": "hexagon",
+        "size": "large",
+        "category": "Analysis"
+      },
+      "capabilities": ["RESEARCH", "ANALYSIS", "WRITING"],
+      "defaultInputs": {
+        "research_depth": "detailed",
+        "output_format": "comprehensive_report",
+        "sources_required": 3,
+        "include_visualizations": true
+      },
+      "testScenarios": [
+        {
+          "name": "Market Analysis",
+          "input": "Analyze the AI market trends and predict growth for 2025-2030",
+          "expectedOutput": "Detailed market analysis with data, trends, predictions, and visualizations",
+          "assertions": [
+            {"type": "contains", "value": "market analysis"},
+            {"type": "length", "min": 500},
+            {"type": "has_data", "value": true}
+          ]
+        },
+        {
+          "name": "Technical Research",
+          "input": "Research the latest developments in quantum computing hardware",
+          "expectedOutput": "Technical report on quantum computing advancements with citations and technical details",
+          "assertions": [
+            {"type": "contains", "value": "quantum computing"},
+            {"type": "has_citations", "value": true},
+            {"type": "technical_level", "value": "advanced"}
+          ]
+        },
+        {
+          "name": "Competitive Intelligence",
+          "input": "Analyze competitors in the AI orchestration space",
+          "expectedOutput": "Comprehensive competitive analysis with SWOT analysis and market positioning",
+          "assertions": [
+            {"type": "contains", "value": "SWOT"},
+            {"type": "has_competitor_analysis", "value": true},
+            {"type": "market_positioning", "value": true}
+          ]
+        }
+      ],
+      "performanceMetrics": {
+        "expectedResponseTime": "30-120 seconds",
+        "accuracyThreshold": "85%",
+        "completenessScore": "90%",
+        "successRate": "95%"
+      },
+      "mcpTool": "happyos_agent_ResearchAgent",
+      "supportedModels": ["gpt-4", "claude-3-sonnet", "deepseek-chat"],
+      "tags": ["research", "analysis", "data", "intelligence"]
+    },
+
+    "WritingAgent": {
+      "name": "Writing Agent",
+      "type": "WritingAgent",
+      "description": "Creative writing specialist for content generation, copywriting, and communication. Adapts tone and style based on audience and purpose.",
+      "visual": {
+        "icon": "✍️",
+        "color": "#7ED321",
+        "shape": "rectangle",
+        "size": "medium",
+        "category": "Content"
+      },
+      "capabilities": ["WRITING", "TRANSLATION"],
+      "defaultInputs": {
+        "tone": "professional",
+        "audience": "general",
+        "length": "medium",
+        "include_call_to_action": true
+      },
+      "testScenarios": [
+        {
+          "name": "Product Description",
+          "input": "Write a compelling product description for HappyOS AI system",
+          "expectedOutput": "Engaging marketing copy highlighting key features and benefits",
+          "assertions": [
+            {"type": "tone", "value": "engaging"},
+            {"type": "has_features", "value": true},
+            {"type": "length", "min": 150, "max": 300}
+          ]
+        },
+        {
+          "name": "Technical Documentation",
+          "input": "Create API documentation for the agent orchestration endpoint",
+          "expectedOutput": "Clear, comprehensive API documentation with examples and use cases",
+          "assertions": [
+            {"type": "has_examples", "value": true},
+            {"type": "technical_accuracy", "value": true},
+            {"type": "readability", "min": 80}
+          ]
+        },
+        {
+          "name": "Blog Post",
+          "input": "Write a blog post about the future of AI orchestration",
+          "expectedOutput": "Informative, engaging blog post suitable for technical audience",
+          "assertions": [
+            {"type": "engagement_score", "min": 75},
+            {"type": "technical_depth", "value": "intermediate"},
+            {"type": "has_conclusion", "value": true}
+          ]
+        }
+      ],
+      "performanceMetrics": {
+        "expectedResponseTime": "15-60 seconds",
+        "readabilityScore": "70+",
+        "engagementPotential": "80%",
+        "grammarAccuracy": "95%"
+      },
+      "mcpTool": "happyos_agent_WritingAgent",
+      "supportedModels": ["gpt-4", "claude-3-sonnet"],
+      "tags": ["writing", "content", "copywriting", "communication"]
+    },
+
+    "CAMELAgent": {
+      "name": "CAMEL Workflow Agent",
+      "type": "CAMELAgent",
+      "description": "Multi-agent orchestration specialist for complex, multi-step tasks. Breaks down complex problems and coordinates multiple agents for optimal results.",
+      "visual": {
+        "icon": "🤝",
+        "color": "#F5A623",
+        "shape": "diamond",
+        "size": "large",
+        "category": "Orchestration"
+      },
+      "capabilities": ["CAMEL_WORKFLOW", "PLANNING", "CODING"],
+      "defaultInputs": {
+        "max_subtasks": 4,
+        "coordination_strategy": "parallel",
+        "quality_threshold": "high",
+        "deadline_sensitivity": "medium"
+      },
+      "testScenarios": [
+        {
+          "name": "Product Launch Strategy",
+          "input": "Develop a comprehensive product launch strategy for HappyOS including marketing, technical setup, and user onboarding",
+          "expectedOutput": "Complete launch plan with multiple coordinated components",
+          "assertions": [
+            {"type": "has_marketing_plan", "value": true},
+            {"type": "has_technical_setup", "value": true},
+            {"type": "has_onboarding", "value": true},
+            {"type": "coordination_score", "min": 85}
+          ]
+        },
+        {
+          "name": "System Integration",
+          "input": "Integrate multiple AI services (OpenAI, Anthropic, local models) into a unified orchestration system",
+          "expectedOutput": "Detailed integration plan with step-by-step implementation and testing procedures",
+          "assertions": [
+            {"type": "integration_steps", "min": 5},
+            {"type": "has_testing_procedures", "value": true},
+            {"type": "compatibility_analysis", "value": true}
+          ]
+        },
+        {
+          "name": "Research Project",
+          "input": "Conduct comprehensive research on AI safety and implement safety measures in HappyOS",
+          "expectedOutput": "Research findings, safety recommendations, and implementation plan",
+          "assertions": [
+            {"type": "has_research_findings", "value": true},
+            {"type": "safety_recommendations", "min": 3},
+            {"type": "implementation_plan", "value": true}
+          ]
+        }
+      ],
+      "performanceMetrics": {
+        "expectedResponseTime": "60-300 seconds",
+        "coordinationEfficiency": "85%",
+        "taskCompletionRate": "95%",
+        "errorRecoveryRate": "90%"
+      },
+      "mcpTool": "happyos_agent_CAMELAgent",
+      "supportedModels": ["gpt-4", "claude-3-sonnet"],
+      "tags": ["orchestration", "workflow", "coordination", "planning"]
+    }
+  },
+
+  "systemTools": {
+    "get_agents": {
+      "name": "Get Agents",
+      "description": "Retrieve information about all available HappyOS agents",
+      "mcpTool": "happyos_system_get_agents",
+      "visual": {
+        "icon": "📋",
+        "color": "#666666",
+        "category": "System"
+      }
+    },
+    "bulk_test": {
+      "name": "Bulk Test",
+      "description": "Run tests across multiple agents simultaneously",
+      "mcpTool": "happyos_system_run_bulk_test",
+      "visual": {
+        "icon": "🧪",
+        "color": "#9B59B6",
+        "category": "Testing"
+      }
+    }
+  },
+
+  "configuration": {
+    "defaultModel": "gpt-4",
+    "maxRetries": 3,
+    "timeoutSeconds": 300,
+    "enableCaching": true,
+    "performanceMonitoring": true,
+    "errorReporting": true
+  },
+
+  "integration": {
+    "windowsAiStudio": {
+      "supportedVersions": ["0.20.0+"],
+      "requiredExtensions": ["ms-windows-ai-studio.windows-ai-studio"],
+      "autoDiscovery": true,
+      "visualTemplates": true,
+      "bulkTesting": true,
+      "performanceDashboard": true
+    },
+    "mcp": {
+      "protocolVersion": "1.0",
+      "supportedTransports": ["stdio", "http"],
+      "authentication": "bearer_token",
+      "rateLimiting": {
+        "requestsPerMinute": 60,
+        "burstLimit": 10
+      }
+    }
+  }
+}

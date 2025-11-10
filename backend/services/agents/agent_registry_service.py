@@ -531,6 +531,99 @@ class AgentRegistry:
         except Exception as e:
             self.logger.error(f"Error calculating health status: {e}")
             return "unknown"
+    
+    async def register_self_building_agent(self, 
+                                          host: str = "localhost",
+                                          port: int = 8004) -> Dict[str, Any]:
+        """
+        Register the self-building agent in the registry.
+        
+        This is a convenience method specifically for registering the self-building
+        agent with its standard configuration.
+        
+        Args:
+            host: MCP server host (default: localhost)
+            port: MCP server port (default: 8004)
+            
+        Returns:
+            Registration result
+        """
+        try:
+            agent_info = {
+                "agent_id": "self-building",
+                "agent_type": AgentType.SYSTEM.value,
+                "capabilities": [
+                    AgentCapability.AUTONOMOUS_IMPROVEMENT.value,
+                    AgentCapability.CODE_GENERATION.value,
+                    AgentCapability.SYSTEM_OPTIMIZATION.value,
+                    AgentCapability.TELEMETRY_ANALYSIS.value,
+                    AgentCapability.COMPONENT_GENERATION.value,
+                ],
+                "endpoint": f"http://{host}:{port}/mcp",
+                "metadata": {
+                    "name": "Self-Building Agent",
+                    "version": "1.0.0",
+                    "description": "Autonomous system improvement and code generation",
+                    "health_endpoint": f"http://{host}:{port}/health",
+                    "mcp_tools": [
+                        "trigger_improvement_cycle",
+                        "generate_component",
+                        "get_system_status",
+                        "query_telemetry_insights"
+                    ],
+                    "features": {
+                        "autonomous_improvements": True,
+                        "component_generation": True,
+                        "telemetry_analysis": True,
+                        "cloudwatch_integration": True,
+                        "llm_integration": True,
+                        "circuit_breaker": True,
+                        "multi_tenant": True
+                    }
+                }
+            }
+            
+            # Store in database
+            await self.db_service.register_agent(agent_info)
+            
+            # Update in-memory cache
+            self._agent_cache["self-building"] = {
+                **agent_info,
+                "status": AgentState.ACTIVE.value,
+                "health_status": "healthy",
+                "registered_at": datetime.utcnow(),
+                "last_heartbeat": datetime.utcnow(),
+                "failure_count": 0
+            }
+            
+            # Update capability index
+            for capability in agent_info["capabilities"]:
+                if capability not in self._capability_index:
+                    self._capability_index[capability] = []
+                if "self-building" not in self._capability_index[capability]:
+                    self._capability_index[capability].append("self-building")
+            
+            self.logger.info(
+                f"Self-building agent registered successfully at "
+                f"http://{host}:{port}/mcp"
+            )
+            
+            return {
+                "success": True,
+                "agent_id": "self-building",
+                "message": "Self-building agent registered successfully",
+                "endpoint": f"http://{host}:{port}/mcp",
+                "health_endpoint": f"http://{host}:{port}/health",
+                "registration_time": datetime.utcnow().isoformat()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Failed to register self-building agent: {e}")
+            return {
+                "success": False,
+                "agent_id": "self-building",
+                "error": str(e)
+            }
 
 
 # Global agent registry instance

@@ -98,6 +98,13 @@ class AgentCapability(Enum):
     WORKFLOW_ORCHESTRATION = "workflow_orchestration"
     CROSS_AGENT_COMMUNICATION = "cross_agent_communication"
     MULTI_AGENT_COORDINATION = "multi_agent_coordination"
+    
+    # Self-building agent capabilities
+    AUTONOMOUS_IMPROVEMENT = "autonomous_improvement"
+    CODE_GENERATION = "code_generation"
+    SYSTEM_OPTIMIZATION = "system_optimization"
+    TELEMETRY_ANALYSIS = "telemetry_analysis"
+    COMPONENT_GENERATION = "component_generation"
 
 # Transport Protocols
 class TransportProtocol(Enum):
@@ -239,6 +246,7 @@ class AgentType(Enum):
     ORCHESTRATOR = "orchestrator"
     MONITOR = "monitor"
     SELF_BUILDER = "self_builder"
+    SYSTEM = "system"
 
 # Task States
 class TaskState(Enum):

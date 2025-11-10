@@ -9,7 +9,7 @@ existing infrastructure and provides seamless switching between cloud and local 
 import asyncio
 import logging
 import uuid
-from typing import Any, Dict, List, Optional, Type, Union, Callable
+from typing import Any, Dict, List, Optional, Type, Union, Callable, AsyncIterator
 from enum import Enum
 
 from backend.core.interfaces import (
@@ -178,6 +178,12 @@ class ServiceFacade:
                 region_name=self.config.aws_region
             )
             
+            # LLM Service (AWS Bedrock + OpenAI fallback)
+            from backend.infrastructure.aws.services.llm_adapter import AWSLLMAdapter
+            self._aws_services['llm'] = AWSLLMAdapter(
+                region_name=self.config.aws_region
+            )
+            
             self.logger.info("AWS services initialized")
             
         except Exception as e:
@@ -208,6 +214,10 @@ class ServiceFacade:
             from backend.infrastructure.local.services.local_secrets_service import LocalSecretsService
             self._local_services['secrets'] = LocalSecretsService()
             
+            # Local LLM service (OpenAI only)
+            from backend.infrastructure.local.services.llm_service import LocalLLMService
+            self._local_services['llm'] = LocalLLMService()
+            
             self.logger.info("Local services initialized")
             
         except Exception as e:
@@ -217,7 +227,7 @@ class ServiceFacade:
     
     def _initialize_circuit_breakers(self):
         """Initialize circuit breakers for each service type."""
-        service_types = ['agent_core', 'search', 'compute', 'cache', 'storage', 'secrets']
+        service_types = ['agent_core', 'search', 'compute', 'cache', 'storage', 'secrets', 'llm']
         
         for service_type in service_types:
             self._circuit_breakers[service_type] = create_default_circuit_breaker()
@@ -236,7 +246,8 @@ class ServiceFacade:
                 'cache': 'redis',         # Cache service
                 'storage': 'system_resources',  # File storage
                 'secrets': 'system_resources',  # Secrets
-                'compute': 'worker_processes'   # Compute/jobs
+                'compute': 'worker_processes',   # Compute/jobs
+                'llm': 'system_resources'  # LLM service
             }
             
             health_key = health_mapping.get(service_type, service_type)
@@ -367,6 +378,10 @@ class ServiceFacade:
     def get_secrets_service(self) -> 'SecretsFacade':
         """Get secrets service facade."""
         return SecretsFacade(self)
+    
+    def get_llm_service(self) -> 'LLMFacade':
+        """Get LLM service facade."""
+        return LLMFacade(self)
     
     async def get_system_health(self) -> Dict[str, Any]:
         """Get overall system health status."""
@@ -577,6 +592,76 @@ class SecretsFacade(SecretsService):
         )
 
 
+class LLMFacade:
+    """LLM service facade with AWS/local failover."""
+    
+    def __init__(self, service_facade: ServiceFacade):
+        self.facade = service_facade
+        self.logger = logging.getLogger(f"{__name__}.LLMFacade")
+    
+    async def generate_completion(
+        self,
+        prompt: str,
+        agent_id: str,
+        tenant_id: str,
+        model: str = "gpt-4",
+        temperature: float = 0.3,
+        max_tokens: int = 500,
+        response_format: str = "json"
+    ) -> Dict[str, Any]:
+        """Generate LLM completion with automatic failover."""
+        return await self.facade._execute_with_circuit_breaker(
+            'llm', 'generate_completion',
+            prompt, agent_id, tenant_id, model, temperature, max_tokens, response_format
+        )
+    
+    async def generate_streaming_completion(
+        self,
+        prompt: str,
+        agent_id: str,
+        tenant_id: str,
+        model: str = "gpt-4",
+        temperature: float = 0.3,
+        max_tokens: int = 500
+    ) -> AsyncIterator[str]:
+        """Generate streaming LLM completion with automatic failover."""
+        # Get service instance
+        service = await self.facade._get_service_instance('llm')
+        
+        # Call streaming method directly (circuit breaker doesn't support streaming well)
+        try:
+            async for chunk in service.generate_streaming_completion(
+                prompt, agent_id, tenant_id, model, temperature, max_tokens
+            ):
+                yield chunk
+        except Exception as e:
+            self.logger.error(f"Streaming completion failed: {e}")
+            # Try fallback to local service
+            if self.facade.config.mode == ServiceMode.HYBRID:
+                local_service = self.facade._local_services.get('llm')
+                if local_service:
+                    self.logger.info("Falling back to local LLM service for streaming")
+                    async for chunk in local_service.generate_streaming_completion(
+                        prompt, agent_id, tenant_id, model, temperature, max_tokens
+                    ):
+                        yield chunk
+                else:
+                    raise
+            else:
+                raise
+    
+    async def get_usage_stats(
+        self,
+        agent_id: Optional[str] = None,
+        tenant_id: Optional[str] = None,
+        time_range: str = "24h"
+    ) -> Dict[str, Any]:
+        """Get LLM usage statistics."""
+        return await self.facade._execute_with_circuit_breaker(
+            'llm', 'get_usage_stats', agent_id, tenant_id, time_range
+        )
+
+
 class ServiceUnavailableError(Exception):
     """Raised when no service implementation is available."""
     pass
@@ -613,6 +698,10 @@ class InfrastructureServiceFactory(ServiceFactory):
     
     def create_secrets_service(self) -> SecretsService:
         return self.facade.get_secrets_service()
+    
+    def create_llm_service(self):
+        """Create LLM service facade."""
+        return self.facade.get_llm_service()
     
     def create_health_service(self) -> HealthService:
         # Return existing health service

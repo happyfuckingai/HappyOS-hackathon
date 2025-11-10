@@ -35,6 +35,14 @@ from .fallback_manager import (
     configure_fallback_manager
 )
 
+from .llm_circuit_breaker import (
+    LLMCircuitBreaker,
+    LLMProviderType,
+    LLMProviderHealth,
+    get_llm_circuit_breaker,
+    reset_llm_circuit_breaker
+)
+
 __all__ = [
     # Circuit Breaker
     "CircuitBreaker",
@@ -63,5 +71,12 @@ __all__ = [
     "GracefulDegradationManager",
     "RecoveryCoordinator",
     "get_fallback_manager",
-    "configure_fallback_manager"
+    "configure_fallback_manager",
+    
+    # LLM Circuit Breaker
+    "LLMCircuitBreaker",
+    "LLMProviderType",
+    "LLMProviderHealth",
+    "get_llm_circuit_breaker",
+    "reset_llm_circuit_breaker"
 ]

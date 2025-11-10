@@ -132,6 +132,57 @@ class ObservabilityConfig:
 
 
 @dataclass
+class SelfBuildingConfig:
+    """Self-building system configuration."""
+    # MCP Server Configuration
+    mcp_port: int = 8004
+    mcp_api_key: Optional[str] = None
+    
+    # CloudWatch Integration
+    cloudwatch_namespace: str = "MeetMind/MCPUIHub"
+    cloudwatch_metrics_period: int = 300
+    cloudwatch_log_group_pattern: str = "/aws/lambda/happyos-*"
+    
+    # Improvement Cycle Configuration
+    improvement_cycle_interval_hours: int = 24
+    max_concurrent_improvements: int = 3
+    improvement_quality_threshold: float = 0.85
+    improvement_risk_tolerance: float = 0.1
+    monitoring_duration_seconds: int = 3600
+    rollback_degradation_threshold: float = 0.10
+    
+    # Analysis Configuration
+    improvement_analysis_window_hours: int = 24
+    telemetry_buffer_size: int = 1000
+    insights_cache_ttl_seconds: int = 300
+    
+    # Component Generation Configuration
+    generation_timeout_seconds: int = 60
+    max_generation_retries: int = 3
+    code_validation_enabled: bool = True
+    
+    # LLM Configuration (reuses existing LLM service)
+    llm_provider: str = "bedrock"  # bedrock, openai, google_genai
+    llm_model: str = "anthropic.claude-v2"
+    llm_temperature: float = 0.1
+    llm_max_tokens: int = 4000
+    
+    # System Health Configuration
+    periodic_health_checks: bool = True
+    health_check_interval_seconds: int = 300
+    system_evolution_tracking: bool = True
+    
+    # Component Flags (for selective initialization)
+    enable_dependency_analyzer: bool = True
+    enable_healing_orchestrator: bool = True
+    enable_doc_generator: bool = True
+    enable_external_marketplace: bool = False
+    enable_optimization_engine: bool = True
+    enable_graph_visualizer: bool = False
+    enable_meta_orchestrator: bool = True
+
+
+@dataclass
 class TenantConfig:
     """Individual tenant configuration."""
     tenant_id: str
@@ -153,6 +204,13 @@ class FeatureFlags:
     enable_auto_scaling: bool = False
     enable_cost_optimization: bool = False
     
+    # Self-building system features
+    enable_self_building: bool = True
+    enable_cloudwatch_streaming: bool = True
+    enable_autonomous_improvements: bool = False  # Start disabled for safety
+    enable_component_generation: bool = True
+    enable_improvement_rollback: bool = True
+    
     # Experimental features
     enable_ml_optimization: bool = False
     enable_predictive_scaling: bool = False
@@ -172,6 +230,7 @@ class Settings:
         self.circuit_breaker = self._load_circuit_breaker_config()
         self.security = self._load_security_config()
         self.observability = self._load_observability_config()
+        self.self_building = self._load_self_building_config()
         self.feature_flags = self._load_feature_flags()
         
         # Load tenant configurations
@@ -292,6 +351,68 @@ class Settings:
         
         return config
     
+    def _load_self_building_config(self) -> SelfBuildingConfig:
+        """Load self-building system configuration."""
+        config = SelfBuildingConfig()
+        
+        # MCP Server Configuration
+        config.mcp_port = int(os.getenv("SELF_BUILDING_MCP_PORT", config.mcp_port))
+        config.mcp_api_key = os.getenv("SELF_BUILDING_MCP_API_KEY")
+        
+        # CloudWatch Integration
+        config.cloudwatch_namespace = os.getenv("SELF_BUILDING_CLOUDWATCH_NAMESPACE", config.cloudwatch_namespace)
+        config.cloudwatch_metrics_period = int(os.getenv("SELF_BUILDING_CLOUDWATCH_METRICS_PERIOD", config.cloudwatch_metrics_period))
+        config.cloudwatch_log_group_pattern = os.getenv("SELF_BUILDING_CLOUDWATCH_LOG_GROUP_PATTERN", config.cloudwatch_log_group_pattern)
+        
+        # Improvement Cycle Configuration
+        config.improvement_cycle_interval_hours = int(os.getenv("SELF_BUILDING_IMPROVEMENT_CYCLE_INTERVAL_HOURS", config.improvement_cycle_interval_hours))
+        config.max_concurrent_improvements = int(os.getenv("SELF_BUILDING_MAX_CONCURRENT_IMPROVEMENTS", config.max_concurrent_improvements))
+        config.improvement_quality_threshold = float(os.getenv("SELF_BUILDING_IMPROVEMENT_QUALITY_THRESHOLD", config.improvement_quality_threshold))
+        config.improvement_risk_tolerance = float(os.getenv("SELF_BUILDING_IMPROVEMENT_RISK_TOLERANCE", config.improvement_risk_tolerance))
+        config.monitoring_duration_seconds = int(os.getenv("SELF_BUILDING_MONITORING_DURATION_SECONDS", config.monitoring_duration_seconds))
+        config.rollback_degradation_threshold = float(os.getenv("SELF_BUILDING_ROLLBACK_DEGRADATION_THRESHOLD", config.rollback_degradation_threshold))
+        
+        # Analysis Configuration
+        config.improvement_analysis_window_hours = int(os.getenv("SELF_BUILDING_IMPROVEMENT_ANALYSIS_WINDOW_HOURS", config.improvement_analysis_window_hours))
+        config.telemetry_buffer_size = int(os.getenv("SELF_BUILDING_TELEMETRY_BUFFER_SIZE", config.telemetry_buffer_size))
+        config.insights_cache_ttl_seconds = int(os.getenv("SELF_BUILDING_INSIGHTS_CACHE_TTL_SECONDS", config.insights_cache_ttl_seconds))
+        
+        # Component Generation Configuration
+        config.generation_timeout_seconds = int(os.getenv("SELF_BUILDING_GENERATION_TIMEOUT_SECONDS", config.generation_timeout_seconds))
+        config.max_generation_retries = int(os.getenv("SELF_BUILDING_MAX_GENERATION_RETRIES", config.max_generation_retries))
+        config.code_validation_enabled = os.getenv("SELF_BUILDING_CODE_VALIDATION_ENABLED", "true").lower() == "true"
+        
+        # LLM Configuration (reuses existing LLM service)
+        config.llm_provider = os.getenv("LLM_PROVIDER", config.llm_provider)
+        config.llm_model = os.getenv("LLM_MODEL", config.llm_model)
+        config.llm_temperature = float(os.getenv("LLM_TEMPERATURE", config.llm_temperature))
+        config.llm_max_tokens = int(os.getenv("LLM_MAX_TOKENS", config.llm_max_tokens))
+        
+        # System Health Configuration
+        config.periodic_health_checks = os.getenv("SELF_BUILDING_PERIODIC_HEALTH_CHECKS", "true").lower() == "true"
+        config.health_check_interval_seconds = int(os.getenv("SELF_BUILDING_HEALTH_CHECK_INTERVAL_SECONDS", config.health_check_interval_seconds))
+        config.system_evolution_tracking = os.getenv("SELF_BUILDING_SYSTEM_EVOLUTION_TRACKING", "true").lower() == "true"
+        
+        # Component Flags (for selective initialization)
+        config.enable_dependency_analyzer = os.getenv("ENABLE_DEPENDENCY_ANALYZER", "true").lower() == "true"
+        config.enable_healing_orchestrator = os.getenv("ENABLE_HEALING_ORCHESTRATOR", "true").lower() == "true"
+        config.enable_doc_generator = os.getenv("ENABLE_DOC_GENERATOR", "true").lower() == "true"
+        config.enable_external_marketplace = os.getenv("ENABLE_EXTERNAL_MARKETPLACE", "false").lower() == "true"
+        config.enable_optimization_engine = os.getenv("ENABLE_OPTIMIZATION_ENGINE", "true").lower() == "true"
+        config.enable_graph_visualizer = os.getenv("ENABLE_GRAPH_VISUALIZER", "false").lower() == "true"
+        config.enable_meta_orchestrator = os.getenv("ENABLE_META_ORCHESTRATOR", "true").lower() == "true"
+        
+        # Load from config file if exists
+        config_file = os.path.join(self.config_path, "self_building.yaml")
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                file_config = yaml.safe_load(f)
+                for key, value in file_config.items():
+                    if hasattr(config, key):
+                        setattr(config, key, value)
+        
+        return config
+    
     def _load_feature_flags(self) -> FeatureFlags:
         """Load feature flag configuration."""
         config = FeatureFlags()
@@ -304,6 +425,13 @@ class Settings:
         config.enable_observability = os.getenv("ENABLE_OBSERVABILITY", "true").lower() == "true"
         config.enable_auto_scaling = os.getenv("ENABLE_AUTO_SCALING", "false").lower() == "true"
         config.enable_cost_optimization = os.getenv("ENABLE_COST_OPTIMIZATION", "false").lower() == "true"
+        
+        # Self-building system flags
+        config.enable_self_building = os.getenv("ENABLE_SELF_BUILDING", "true").lower() == "true"
+        config.enable_cloudwatch_streaming = os.getenv("ENABLE_CLOUDWATCH_STREAMING", "true").lower() == "true"
+        config.enable_autonomous_improvements = os.getenv("ENABLE_AUTONOMOUS_IMPROVEMENTS", "false").lower() == "true"
+        config.enable_component_generation = os.getenv("ENABLE_COMPONENT_GENERATION", "true").lower() == "true"
+        config.enable_improvement_rollback = os.getenv("ENABLE_IMPROVEMENT_ROLLBACK", "true").lower() == "true"
         
         # Load from config file if exists
         config_file = os.path.join(self.config_path, "features.yaml")
@@ -348,6 +476,98 @@ class Settings:
         """Check if a feature flag is enabled."""
         return getattr(self.feature_flags, feature_name, False)
     
+    # Improvement cycle configuration properties (for backward compatibility)
+    @property
+    def recursive_improvement_enabled(self) -> bool:
+        """Check if recursive improvement is enabled."""
+        return self.feature_flags.enable_autonomous_improvements
+    
+    @property
+    def improvement_cycle_interval_hours(self) -> int:
+        """Get improvement cycle interval in hours."""
+        return self.self_building.improvement_cycle_interval_hours
+    
+    @property
+    def max_concurrent_improvements(self) -> int:
+        """Get maximum concurrent improvements."""
+        return self.self_building.max_concurrent_improvements
+    
+    @property
+    def improvement_analysis_window_hours(self) -> int:
+        """Get analysis window for improvements in hours."""
+        return self.self_building.improvement_analysis_window_hours
+    
+    @property
+    def improvement_risk_tolerance(self) -> float:
+        """Get risk tolerance for improvements (0.0-1.0)."""
+        return self.self_building.improvement_risk_tolerance
+    
+    @property
+    def monitoring_duration_seconds(self) -> int:
+        """Get monitoring duration for improvements in seconds."""
+        return self.self_building.monitoring_duration_seconds
+    
+    @property
+    def rollback_degradation_threshold(self) -> float:
+        """Get degradation threshold for rollback (0.0-1.0)."""
+        return self.self_building.rollback_degradation_threshold
+    
+    @property
+    def cloudwatch_namespace(self) -> str:
+        """Get CloudWatch namespace."""
+        return self.self_building.cloudwatch_namespace
+    
+    @property
+    def cloudwatch_log_group_pattern(self) -> str:
+        """Get CloudWatch log group pattern."""
+        return self.self_building.cloudwatch_log_group_pattern
+    
+    @property
+    def periodic_health_checks(self) -> bool:
+        """Check if periodic health checks are enabled."""
+        return self.self_building.periodic_health_checks
+    
+    @property
+    def system_evolution_tracking(self) -> bool:
+        """Check if system evolution tracking is enabled."""
+        return self.self_building.system_evolution_tracking
+    
+    # Self-building component flags (for selective initialization)
+    @property
+    def enable_dependency_analyzer(self) -> bool:
+        """Check if dependency analyzer is enabled."""
+        return self.self_building.enable_dependency_analyzer
+    
+    @property
+    def enable_healing_orchestrator(self) -> bool:
+        """Check if healing orchestrator is enabled."""
+        return self.self_building.enable_healing_orchestrator
+    
+    @property
+    def enable_doc_generator(self) -> bool:
+        """Check if doc generator is enabled."""
+        return self.self_building.enable_doc_generator
+    
+    @property
+    def enable_external_marketplace(self) -> bool:
+        """Check if external marketplace is enabled."""
+        return self.self_building.enable_external_marketplace
+    
+    @property
+    def enable_optimization_engine(self) -> bool:
+        """Check if optimization engine is enabled."""
+        return self.self_building.enable_optimization_engine
+    
+    @property
+    def enable_graph_visualizer(self) -> bool:
+        """Check if graph visualizer is enabled."""
+        return self.self_building.enable_graph_visualizer
+    
+    @property
+    def enable_meta_orchestrator(self) -> bool:
+        """Check if meta orchestrator is enabled."""
+        return self.self_building.enable_meta_orchestrator
+    
     def get_service_config(self, service_name: str) -> Dict[str, Any]:
         """Get configuration for a specific service."""
         service_configs = {
@@ -355,7 +575,8 @@ class Settings:
             "local": self.local.__dict__,
             "circuit_breaker": self.circuit_breaker.__dict__,
             "security": self.security.__dict__,
-            "observability": self.observability.__dict__
+            "observability": self.observability.__dict__,
+            "self_building": self.self_building.__dict__
         }
         return service_configs.get(service_name, {})
     

@@ -52,6 +52,13 @@ MCP UI Hub → Frontend
 git clone https://github.com/happyfuckingai/HappyOS-hackathon.git
 cd HappyOS-hackathon
 
+# Configure LLM services (required)
+cp .env.example .env
+# Edit .env and add your API keys:
+# - OPENAI_API_KEY (required for all agents)
+# - GOOGLE_API_KEY (optional, for Banking Agent)
+# - AWS credentials (optional, for Bedrock)
+
 # Start the complete system
 make deploy ENV=dev
 
@@ -263,6 +270,95 @@ open http://localhost:3000/dashboard
 # Monitor MCP message flow
 curl http://localhost:8000/metrics/mcp-flow
 ```
+
+---
+
+## 🔑 Environment Configuration
+
+### Required Environment Variables
+
+**LLM Service Configuration:**
+```bash
+# OpenAI (Required for all agents)
+OPENAI_API_KEY=sk-...                    # Get from https://platform.openai.com/api-keys
+
+# Google GenAI (Optional - for Banking Agent)
+GOOGLE_API_KEY=...                       # Get from https://makersuite.google.com/app/apikey
+
+# AWS Bedrock (Optional - for production)
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+```
+
+**Backend Services:**
+```bash
+# Supabase (Database & Auth)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+
+# LiveKit (Video/Audio)
+LIVEKIT_URL=wss://your-project.livekit.cloud
+LIVEKIT_API_KEY=...
+LIVEKIT_API_SECRET=...
+
+# MCP Security
+MCP_API_KEY=your-secure-key              # For MCP server authentication
+```
+
+**AWS Infrastructure (Production):**
+```bash
+# Bedrock
+BEDROCK_MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0
+
+# ElastiCache (LLM Caching)
+ELASTICACHE_CLUSTER=happyos-llm-cache.abc123.0001.use1.cache.amazonaws.com:6379
+
+# OpenSearch (Vector Search)
+OPENSEARCH_ENDPOINT=https://search-happyos.us-east-1.es.amazonaws.com
+
+# DynamoDB (Usage Tracking)
+DYNAMODB_TABLE_PREFIX=happyos-
+```
+
+**Frontend Configuration:**
+```bash
+# React App
+REACT_APP_API_URL=http://localhost:8000  # Backend API URL
+```
+
+### Setup Instructions
+
+1. **Copy the example environment file:**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Add your API keys:**
+   - Get OpenAI API key from https://platform.openai.com/api-keys
+   - (Optional) Get Google API key from https://makersuite.google.com/app/apikey
+   - Configure AWS credentials if using Bedrock
+
+3. **Start the system:**
+   ```bash
+   make deploy ENV=dev
+   ```
+
+### LLM Provider Selection
+
+HappyOS automatically selects the best available LLM provider:
+
+1. **AWS Bedrock** (Production) - If AWS credentials configured
+2. **OpenAI** (Fallback) - If OPENAI_API_KEY set
+3. **Local Rule-Based** (Emergency) - If no LLM available
+
+**Cost Optimization:**
+- Development: Use OpenAI GPT-3.5-turbo ($0.0005/1K tokens)
+- Production: Use AWS Bedrock Claude 3 Haiku ($0.00025/1K tokens)
+- Caching: 30%+ cache hit rate reduces costs significantly
+
+For detailed LLM configuration, see [backend/core/llm/README.md](backend/core/llm/README.md)
 
 ---
 

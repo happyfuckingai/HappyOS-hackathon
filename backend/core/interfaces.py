@@ -4,7 +4,7 @@ These interfaces define the contracts for AWS and local service implementations.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, AsyncIterator
 from datetime import datetime
 from dataclasses import dataclass
 from enum import Enum
@@ -50,6 +50,50 @@ class TenantResource:
     access_policy: Dict[str, Any]
     created_at: datetime
     updated_at: datetime
+
+
+@dataclass
+class LLMRequest:
+    """LLM request model for tracking LLM operations."""
+    agent_id: str
+    team: str
+    prompt: str
+    model: str
+    temperature: float
+    max_tokens: int
+    response_format: str
+    metadata: Dict[str, Any]
+    timestamp: datetime
+
+
+@dataclass
+class LLMResponse:
+    """LLM response model for tracking LLM results."""
+    request_id: str
+    agent_id: str
+    content: str
+    model: str
+    provider: str
+    tokens_used: int
+    estimated_cost: float
+    latency_ms: int
+    cached: bool
+    timestamp: datetime
+
+
+@dataclass
+class LLMUsageStats:
+    """LLM usage statistics model for monitoring and cost tracking."""
+    agent_id: str
+    team: str
+    time_range: str
+    total_requests: int
+    cached_requests: int
+    failed_requests: int
+    total_tokens: int
+    total_cost: float
+    average_latency_ms: float
+    provider_breakdown: Dict[str, int]
 
 
 class CircuitState(Enum):
@@ -306,6 +350,85 @@ class TenantService(ABC):
         pass
 
 
+class LLMService(ABC):
+    """Interface for LLM operations with tenant isolation."""
+    
+    @abstractmethod
+    async def generate_completion(
+        self,
+        prompt: str,
+        agent_id: str,
+        tenant_id: str,
+        model: str = "gpt-4",
+        temperature: float = 0.3,
+        max_tokens: int = 500,
+        response_format: str = "json"
+    ) -> Dict[str, Any]:
+        """Generate LLM completion.
+        
+        Args:
+            prompt: The prompt to send to the LLM
+            agent_id: Identifier of the agent making the request
+            tenant_id: Tenant identifier for isolation
+            model: Model to use (e.g., "gpt-4", "claude-3-sonnet", "gemini-1.5-pro")
+            temperature: Sampling temperature (0.0-1.0)
+            max_tokens: Maximum tokens in response
+            response_format: Expected response format ("json" or "text")
+            
+        Returns:
+            Dict containing:
+                - content: The generated text
+                - model: Model used
+                - tokens: Token count
+                - cached: Whether response was cached
+        """
+        pass
+    
+    @abstractmethod
+    async def generate_streaming_completion(
+        self,
+        prompt: str,
+        agent_id: str,
+        tenant_id: str,
+        model: str = "gpt-4",
+        temperature: float = 0.3,
+        max_tokens: int = 500
+    ) -> AsyncIterator[str]:
+        """Generate streaming LLM completion.
+        
+        Args:
+            prompt: The prompt to send to the LLM
+            agent_id: Identifier of the agent making the request
+            tenant_id: Tenant identifier for isolation
+            model: Model to use
+            temperature: Sampling temperature (0.0-1.0)
+            max_tokens: Maximum tokens in response
+            
+        Yields:
+            Chunks of generated text as they arrive
+        """
+        pass
+    
+    @abstractmethod
+    async def get_usage_stats(
+        self,
+        agent_id: Optional[str] = None,
+        tenant_id: Optional[str] = None,
+        time_range: str = "24h"
+    ) -> Dict[str, Any]:
+        """Get LLM usage statistics.
+        
+        Args:
+            agent_id: Optional agent ID to filter stats
+            tenant_id: Optional tenant ID to filter stats
+            time_range: Time range for stats (e.g., "1h", "24h", "7d")
+            
+        Returns:
+            Dict containing usage statistics
+        """
+        pass
+
+
 # Service factory interface
 class ServiceFactory(ABC):
     """Factory interface for creating service instances."""
@@ -343,4 +466,9 @@ class ServiceFactory(ABC):
     @abstractmethod
     def create_health_service(self) -> HealthService:
         """Create health service instance."""
+        pass
+    
+    @abstractmethod
+    def create_llm_service(self) -> 'LLMService':
+        """Create LLM service instance."""
         pass

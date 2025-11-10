@@ -203,6 +203,73 @@ async def lifespan(app: FastAPI):
         # Don't fail startup for registry issues
         pass
 
+    # Start Self-Building MCP Server
+    self_building_server_task = None
+    try:
+        # Check if self-building is enabled
+        if settings.ENABLE_SELF_BUILDING:
+            logger.info("Starting Self-Building MCP Server...")
+            
+            # Import self-building server
+            try:
+                from backend.agents.self_building.self_building_mcp_server import app as self_building_app
+                from backend.agents.self_building.config import get_config as get_self_building_config
+            except ImportError:
+                from agents.self_building.self_building_mcp_server import app as self_building_app
+                from agents.self_building.config import get_config as get_self_building_config
+            
+            # Get self-building configuration
+            sb_config = get_self_building_config()
+            
+            # Start self-building server in background
+            import uvicorn
+            
+            async def run_self_building_server():
+                """Run self-building MCP server in background."""
+                config = uvicorn.Config(
+                    self_building_app,
+                    host=sb_config.mcp_host,
+                    port=sb_config.mcp_port,
+                    log_level=sb_config.log_level.lower()
+                )
+                server = uvicorn.Server(config)
+                await server.serve()
+            
+            # Create background task
+            self_building_server_task = asyncio.create_task(run_self_building_server())
+            
+            # Wait a moment for server to start
+            await asyncio.sleep(2)
+            
+            # Register self-building agent in registry
+            try:
+                registration_result = await agent_registry.register_self_building_agent(
+                    host=sb_config.mcp_host,
+                    port=sb_config.mcp_port
+                )
+                
+                if registration_result.get("success"):
+                    logger.info(
+                        f"Self-building agent registered at "
+                        f"{registration_result.get('endpoint')}"
+                    )
+                else:
+                    logger.error(
+                        f"Failed to register self-building agent: "
+                        f"{registration_result.get('error')}"
+                    )
+            except Exception as e:
+                logger.error(f"Error registering self-building agent: {e}")
+            
+            logger.info("Self-Building MCP Server started successfully")
+        else:
+            logger.info("Self-building system is disabled by configuration")
+            
+    except Exception as e:
+        logger.error(f"Failed to start Self-Building MCP Server: {e}")
+        # Don't fail startup for self-building issues
+        pass
+
     startup_duration = time.time() - startup_start
     logger.info("Backend startup completed", 
                 startup_duration_seconds=startup_duration,
@@ -213,6 +280,19 @@ async def lifespan(app: FastAPI):
     finally:
         # Shutdown
         logger.info("Shutting down Meetmind Backend...")
+        
+        # Shutdown Self-Building MCP Server
+        if self_building_server_task and not self_building_server_task.done():
+            try:
+                logger.info("Shutting down Self-Building MCP Server...")
+                self_building_server_task.cancel()
+                try:
+                    await self_building_server_task
+                except asyncio.CancelledError:
+                    pass
+                logger.info("Self-Building MCP Server shutdown")
+            except Exception as e:
+                logger.error(f"Error shutting down Self-Building MCP Server: {e}")
         
         # Shutdown Agent Registry Service
         try:

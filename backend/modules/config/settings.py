@@ -131,6 +131,13 @@ class Settings(BaseSettings):
     BACKEND_DEBUG: bool = os.getenv("BACKEND_DEBUG", "true").lower() == "true"
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
     
+    # Self-Building System Configuration
+    ENABLE_SELF_BUILDING: bool = os.getenv("ENABLE_SELF_BUILDING", "true").lower() == "true"
+    ENABLE_CLOUDWATCH_STREAMING: bool = os.getenv("ENABLE_CLOUDWATCH_STREAMING", "true").lower() == "true"
+    ENABLE_AUTONOMOUS_IMPROVEMENTS: bool = os.getenv("ENABLE_AUTONOMOUS_IMPROVEMENTS", "false").lower() == "true"
+    ENABLE_COMPONENT_GENERATION: bool = os.getenv("ENABLE_COMPONENT_GENERATION", "true").lower() == "true"
+    ENABLE_IMPROVEMENT_ROLLBACK: bool = os.getenv("ENABLE_IMPROVEMENT_ROLLBACK", "true").lower() == "true"
+    
     # Configuration validation settings - must be set early
     FAIL_FAST_ON_CONFIG_ERROR: bool = os.getenv("FAIL_FAST_ON_CONFIG_ERROR", "true").lower() == "true"
     VALIDATE_SECRETS_ON_STARTUP: bool = os.getenv("VALIDATE_SECRETS_ON_STARTUP", "true").lower() == "true"
