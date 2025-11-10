@@ -7,10 +7,26 @@ import asyncio
 import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-
-from openai import AsyncOpenAI
+import json
 
 from ..config_loader import ADKConfig
+
+# Import LLMService - use TYPE_CHECKING for type hints only
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.core.interfaces import LLMService
+else:
+    # Runtime import with fallback
+    try:
+        from backend.core.interfaces import LLMService
+    except ImportError:
+        # For test environment, create a stub
+        from typing import Protocol
+        class LLMService(Protocol):
+            """Stub LLMService for testing."""
+            async def generate_completion(self, **kwargs): ...
+            async def generate_streaming_completion(self, **kwargs): ...
+            async def get_usage_stats(self, **kwargs): ...
 
 
 class QualityAssuranceAgent:
@@ -19,14 +35,14 @@ class QualityAssuranceAgent:
     Ensures all operations meet standards and regulatory requirements
     """
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None, llm_service: Optional[LLMService] = None):
         self.config = ADKConfig(config_path)
         self.logger = logging.getLogger(__name__)
 
-        # Initialize LLM for validation and compliance checking
-        self.llm_client = AsyncOpenAI(
-            api_key=getattr(self.config.adk, 'openai_api_key', None)
-        )
+        # Initialize LLM service (centralized)
+        self.llm_service = llm_service
+        if not self.llm_service:
+            self.logger.warning("No LLM service provided - running with fallback logic only")
 
         # Validation frameworks
         self.compliance_rules = {

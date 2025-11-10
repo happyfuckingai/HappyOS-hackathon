@@ -7,6 +7,7 @@ Reuses existing Agent Svea testing and validation logic.
 
 import asyncio
 import logging
+import json
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
@@ -34,6 +35,9 @@ class QualityAssuranceAgent:
         self.erp_service = self.services.get("erp_service")
         self.compliance_service = self.services.get("compliance_service")
         self.swedish_integration_service = self.services.get("swedish_integration_service")
+        
+        # LLM Service dependency injection (same pattern as Felicia's Finance)
+        self.llm_service = self.services.get("llm_service")
         
         # QA testing areas
         self.testing_areas = [
@@ -82,82 +86,181 @@ class QualityAssuranceAgent:
         """
         Validate Swedish compliance accuracy.
         Reuses existing compliance validation logic from Agent Svea MCP server.
+        Uses LLM for intelligent compliance validation analysis.
         """
         try:
             compliance_type = payload.get("compliance_type", "general")
             test_data = payload.get("test_data", {})
             validation_rules = payload.get("validation_rules", [])
             
-            # This would integrate with existing compliance validation from MCP server
-            validation_results = {
-                "compliance_type": compliance_type,
-                "test_scenarios_executed": [],
-                "validation_results": {},
-                "compliance_score": 0.0,
-                "issues_found": [],
-                "recommendations": []
-            }
-            
-            # Execute compliance validation scenarios
-            if compliance_type == "bas_accounting":
-                test_scenarios = [
-                    "validate_account_structure",
-                    "test_account_number_format",
-                    "verify_account_type_mapping",
-                    "check_balance_sheet_compliance"
-                ]
-                
-                for scenario in test_scenarios:
-                    result = await self._execute_compliance_test(scenario, test_data)
-                    validation_results["test_scenarios_executed"].append(scenario)
-                    validation_results["validation_results"][scenario] = result
+            # Use LLM for intelligent compliance validation analysis
+            if self.llm_service:
+                try:
+                    prompt = f"""
+Analysera svensk compliance-noggrannhet och generera valideringsplan:
+
+Compliance-typ: {compliance_type}
+Testdata: {json.dumps(test_data, ensure_ascii=False, indent=2)}
+Valideringsregler: {json.dumps(validation_rules, ensure_ascii=False, indent=2)}
+
+Ge svar på svenska i JSON-format:
+{{
+    "compliance_typ": "{compliance_type}",
+    "testscenarier": ["scenario1", "scenario2", "scenario3"],
+    "valideringskriterier": ["kriterium1", "kriterium2"],
+    "svenska_regelverkskrav": ["krav1", "krav2"],
+    "kritiska_kontrollpunkter": ["punkt1", "punkt2"],
+    "förväntade_resultat": {{
+        "bas_kontovalidering": "beskrivning",
+        "moms_beräkningar": "beskrivning",
+        "sie_format": "beskrivning"
+    }},
+    "riskområden": ["risk1", "risk2"],
+    "rekommendationer": ["rekommendation1", "rekommendation2"]
+}}
+
+Fokusera på BAS-kontoplan, momsberäkningar, SIE-format, och Skatteverkets krav.
+"""
                     
-                    if not result["passed"]:
-                        validation_results["issues_found"].append({
-                            "scenario": scenario,
-                            "issue": result["error"],
-                            "severity": result.get("severity", "medium")
-                        })
-                
-            elif compliance_type == "vat_reporting":
-                test_scenarios = [
-                    "validate_vat_rates",
-                    "test_vat_calculations",
-                    "verify_reporting_format",
-                    "check_submission_deadlines"
-                ]
-                
-                for scenario in test_scenarios:
-                    result = await self._execute_compliance_test(scenario, test_data)
-                    validation_results["test_scenarios_executed"].append(scenario)
-                    validation_results["validation_results"][scenario] = result
+                    llm_response = await self.llm_service.generate_completion(
+                        prompt=prompt,
+                        agent_id=self.agent_id,
+                        tenant_id=payload.get("tenant_id", "default"),
+                        model="gpt-4",
+                        temperature=0.2,  # Low temperature for factual compliance validation
+                        max_tokens=1000,
+                        response_format="json"
+                    )
+                    
+                    # Parse LLM response
+                    llm_validation_plan = json.loads(llm_response["content"])
+                    
+                    # Execute compliance validation scenarios
+                    validation_results = {
+                        "compliance_type": compliance_type,
+                        "test_scenarios_executed": [],
+                        "validation_results": {},
+                        "compliance_score": 0.0,
+                        "issues_found": [],
+                        "recommendations": llm_validation_plan.get("rekommendationer", []),
+                        "llm_validation_plan": llm_validation_plan
+                    }
+                    
+                    # Execute test scenarios from LLM plan
+                    for scenario in llm_validation_plan.get("testscenarier", [])[:5]:  # Limit to 5 scenarios
+                        result = await self._execute_compliance_test(scenario, test_data)
+                        validation_results["test_scenarios_executed"].append(scenario)
+                        validation_results["validation_results"][scenario] = result
+                        
+                        if not result["passed"]:
+                            validation_results["issues_found"].append({
+                                "scenario": scenario,
+                                "issue": result.get("error", "Test failed"),
+                                "severity": result.get("severity", "medium")
+                            })
+                    
+                    # Calculate compliance score
+                    passed_tests = sum(1 for result in validation_results["validation_results"].values() if result["passed"])
+                    total_tests = len(validation_results["validation_results"])
+                    validation_results["compliance_score"] = (passed_tests / total_tests * 100) if total_tests > 0 else 0
+                    
+                    return {
+                        "status": "compliance_validation_completed",
+                        "validation_results": validation_results,
+                        "quality_assessment": {
+                            "compliance_level": "high" if validation_results["compliance_score"] >= 95 else "medium",
+                            "risk_level": "low" if validation_results["compliance_score"] >= 98 else "medium",
+                            "certification_ready": validation_results["compliance_score"] >= 99
+                        },
+                        "llm_enhanced": True,
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                    
+                except Exception as llm_error:
+                    self.logger.warning(f"LLM compliance validation failed: {llm_error}, using fallback")
+                    # Fall through to fallback logic
             
-            # Calculate compliance score
-            passed_tests = sum(1 for result in validation_results["validation_results"].values() if result["passed"])
-            total_tests = len(validation_results["validation_results"])
-            validation_results["compliance_score"] = (passed_tests / total_tests * 100) if total_tests > 0 else 0
-            
-            # Generate recommendations
-            if validation_results["compliance_score"] < 95:
-                validation_results["recommendations"] = [
-                    "Review failed test scenarios",
-                    "Update compliance validation rules",
-                    "Implement additional validation checks",
-                    "Conduct compliance training"
-                ]
-            
-            return {
-                "status": "compliance_validation_completed",
-                "validation_results": validation_results,
-                "quality_assessment": {
-                    "compliance_level": "high" if validation_results["compliance_score"] >= 95 else "medium",
-                    "risk_level": "low" if validation_results["compliance_score"] >= 98 else "medium",
-                    "certification_ready": validation_results["compliance_score"] >= 99
-                }
-            }
+            # Fallback to rule-based compliance validation
+            return await self._fallback_validate_compliance_accuracy(compliance_type, test_data, validation_rules)
             
         except Exception as e:
             return {"error": str(e)}
+    
+    async def _fallback_validate_compliance_accuracy(
+        self,
+        compliance_type: str,
+        test_data: Dict[str, Any],
+        validation_rules: list
+    ) -> Dict[str, Any]:
+        """Fallback rule-based compliance validation."""
+        validation_results = {
+            "compliance_type": compliance_type,
+            "test_scenarios_executed": [],
+            "validation_results": {},
+            "compliance_score": 0.0,
+            "issues_found": [],
+            "recommendations": []
+        }
+        
+        # Execute compliance validation scenarios
+        if compliance_type == "bas_accounting":
+            test_scenarios = [
+                "validate_account_structure",
+                "test_account_number_format",
+                "verify_account_type_mapping",
+                "check_balance_sheet_compliance"
+            ]
+            
+            for scenario in test_scenarios:
+                result = await self._execute_compliance_test(scenario, test_data)
+                validation_results["test_scenarios_executed"].append(scenario)
+                validation_results["validation_results"][scenario] = result
+                
+                if not result["passed"]:
+                    validation_results["issues_found"].append({
+                        "scenario": scenario,
+                        "issue": result.get("error", "Test failed"),
+                        "severity": result.get("severity", "medium")
+                    })
+            
+        elif compliance_type == "vat_reporting":
+            test_scenarios = [
+                "validate_vat_rates",
+                "test_vat_calculations",
+                "verify_reporting_format",
+                "check_submission_deadlines"
+            ]
+            
+            for scenario in test_scenarios:
+                result = await self._execute_compliance_test(scenario, test_data)
+                validation_results["test_scenarios_executed"].append(scenario)
+                validation_results["validation_results"][scenario] = result
+        
+        # Calculate compliance score
+        passed_tests = sum(1 for result in validation_results["validation_results"].values() if result["passed"])
+        total_tests = len(validation_results["validation_results"])
+        validation_results["compliance_score"] = (passed_tests / total_tests * 100) if total_tests > 0 else 0
+        
+        # Generate recommendations
+        if validation_results["compliance_score"] < 95:
+            validation_results["recommendations"] = [
+                "Review failed test scenarios",
+                "Update compliance validation rules",
+                "Implement additional validation checks",
+                "Conduct compliance training"
+            ]
+        
+        return {
+            "status": "compliance_validation_completed",
+            "validation_results": validation_results,
+            "quality_assessment": {
+                "compliance_level": "high" if validation_results["compliance_score"] >= 95 else "medium",
+                "risk_level": "low" if validation_results["compliance_score"] >= 98 else "medium",
+                "certification_ready": validation_results["compliance_score"] >= 99
+            },
+            "llm_enhanced": False,
+            "fallback_used": True
+        }
     
     async def _test_erp_functionality(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -654,6 +757,23 @@ class QualityAssuranceAgent:
                 "compliance_testing": "Validates Swedish regulatory compliance across all modules",
                 "integration_testing": "Tests ERPNext integration, Skatteverket API, banking systems",
                 "performance_testing": "Validates response times and throughput for all services"
+            },
+            "services_available": {
+                "erp_service": self.erp_service is not None,
+                "compliance_service": self.compliance_service is not None,
+                "swedish_integration_service": self.swedish_integration_service is not None,
+                "llm_service": self.llm_service is not None
+            },
+            "llm_integration": {
+                "enabled": self.llm_service is not None,
+                "model": "gpt-4",
+                "language": "svenska",
+                "fallback_available": True,
+                "use_cases": [
+                    "Compliance accuracy validation",
+                    "Test scenario generation",
+                    "Quality assessment analysis"
+                ]
             },
             "timestamp": datetime.now().isoformat()
         }

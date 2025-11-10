@@ -7,6 +7,7 @@ Reuses existing Agent Svea technical components and AWS integration.
 
 import asyncio
 import logging
+import json
 from typing import Dict, Any, Optional
 from datetime import datetime
 
@@ -33,6 +34,9 @@ class ArchitectAgent:
         self.erp_service = self.services.get("erp_service")
         self.compliance_service = self.services.get("compliance_service")
         self.swedish_integration_service = self.services.get("swedish_integration_service")
+        
+        # LLM Service dependency injection (same pattern as Felicia's Finance)
+        self.llm_service = self.services.get("llm_service")
         
         # Technical design knowledge for Swedish systems (from existing Agent Svea)
         self.erp_modules = [
@@ -78,50 +82,113 @@ class ArchitectAgent:
         """
         Design ERPNext architecture for Swedish requirements.
         Reuses existing ERPNext integration knowledge.
+        Uses LLM for intelligent architecture design.
         """
         try:
             company_type = payload.get("company_type", "general")
             required_modules = payload.get("modules", self.erp_modules)
             
-            # Design based on existing ERPNext knowledge from erpnext/ directory
-            # Reuses existing Agent Svea MCP server architecture patterns
-            architecture = {
-                "erp_system": "ERPNext",
-                "customizations": [
-                    "Swedish chart of accounts (BAS)",
-                    "Swedish payroll calculations",
-                    "SIE export functionality",
-                    "VAT reporting for Skatteverket",
-                    "K-report generation"
-                ],
-                "modules": required_modules,
-                "integrations": [
-                    "Skatteverket API",
-                    "Swedish banks (Bankgirot, Plusgirot)",
-                    "SIE format export/import",
-                    "Swedish payroll providers"
-                ],
-                "compliance_features": [
-                    "GDPR data handling",
-                    "Swedish accounting standards",
-                    "Audit trail requirements"
-                ]
-            }
+            # Use LLM for intelligent architecture design
+            if self.llm_service:
+                try:
+                    prompt = f"""
+Designa en ERPNext-arkitektur för svenska företagskrav:
+
+Företagstyp: {company_type}
+Nödvändiga moduler: {', '.join(required_modules)}
+Payload: {json.dumps(payload, ensure_ascii=False, indent=2)}
+
+Ge svar på svenska i JSON-format:
+{{
+    "erp_system": "ERPNext",
+    "svenska_anpassningar": ["anpassning1", "anpassning2"],
+    "moduler": ["modul1", "modul2"],
+    "integrationer": ["integration1", "integration2"],
+    "compliance_funktioner": ["funktion1", "funktion2"],
+    "teknisk_stack": {{
+        "databas": "PostgreSQL",
+        "applikationsserver": "beskrivning",
+        "cache": "beskrivning"
+    }},
+    "säkerhetsarkitektur": ["säkerhetsfunktion1", "säkerhetsfunktion2"],
+    "skalbarhet": "beskrivning av skalbarhet",
+    "implementeringskrav": ["krav1", "krav2"],
+    "tidsuppskattning": "uppskattad tid"
+}}
+"""
+                    
+                    llm_response = await self.llm_service.generate_completion(
+                        prompt=prompt,
+                        agent_id=self.agent_id,
+                        tenant_id=payload.get("tenant_id", "default"),
+                        model="gpt-4",
+                        temperature=0.3,  # Slightly higher for creative architecture design
+                        max_tokens=1000,
+                        response_format="json"
+                    )
+                    
+                    # Parse LLM response
+                    architecture = json.loads(llm_response["content"])
+                    
+                    return {
+                        "status": "erp_architecture_designed",
+                        "architecture": architecture,
+                        "llm_enhanced": True,
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                    
+                except Exception as llm_error:
+                    self.logger.warning(f"LLM architecture design failed: {llm_error}, using fallback")
+                    # Fall through to fallback logic
             
-            return {
-                "status": "erp_architecture_designed",
-                "architecture": architecture,
-                "implementation_requirements": [
-                    "ERPNext server setup",
-                    "Swedish localization modules",
-                    "Custom report development",
-                    "API integrations"
-                ],
-                "estimated_timeline": "6-8 weeks"
-            }
+            # Fallback to rule-based architecture design
+            return await self._fallback_design_erp_architecture(company_type, required_modules)
             
         except Exception as e:
             return {"error": str(e)}
+    
+    async def _fallback_design_erp_architecture(
+        self,
+        company_type: str,
+        required_modules: list
+    ) -> Dict[str, Any]:
+        """Fallback rule-based ERP architecture design."""
+        architecture = {
+            "erp_system": "ERPNext",
+            "customizations": [
+                "Swedish chart of accounts (BAS)",
+                "Swedish payroll calculations",
+                "SIE export functionality",
+                "VAT reporting for Skatteverket",
+                "K-report generation"
+            ],
+            "modules": required_modules,
+            "integrations": [
+                "Skatteverket API",
+                "Swedish banks (Bankgirot, Plusgirot)",
+                "SIE format export/import",
+                "Swedish payroll providers"
+            ],
+            "compliance_features": [
+                "GDPR data handling",
+                "Swedish accounting standards",
+                "Audit trail requirements"
+            ]
+        }
+        
+        return {
+            "status": "erp_architecture_designed",
+            "architecture": architecture,
+            "implementation_requirements": [
+                "ERPNext server setup",
+                "Swedish localization modules",
+                "Custom report development",
+                "API integrations"
+            ],
+            "estimated_timeline": "6-8 weeks",
+            "llm_enhanced": False,
+            "fallback_used": True
+        }
     
     async def _design_compliance_system(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -229,6 +296,18 @@ class ArchitectAgent:
                 "ERP_INTEGRATION", "BAS_VALIDATION", "SKATTEVERKET_API",
                 "DOCUMENT_PROCESSING", "COMPLIANCE_CHECK", "SIE_EXPORT", "INVOICE_GENERATION"
             ],
+            "services_available": {
+                "erp_service": self.erp_service is not None,
+                "compliance_service": self.compliance_service is not None,
+                "swedish_integration_service": self.swedish_integration_service is not None,
+                "llm_service": self.llm_service is not None
+            },
+            "llm_integration": {
+                "enabled": self.llm_service is not None,
+                "model": "gpt-4",
+                "language": "svenska",
+                "fallback_available": True
+            },
             "timestamp": datetime.now().isoformat()
         }
 

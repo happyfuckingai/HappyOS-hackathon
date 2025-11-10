@@ -15,6 +15,7 @@ Features:
 
 import asyncio
 import logging
+import time
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from enum import Enum
@@ -32,6 +33,37 @@ from pydantic import BaseModel, Field
 
 # Configure logging
 logger = setup_logging("INFO", "json", "agent_svea", "agent_svea")
+
+# Initialize self-building agent discovery
+try:
+    import sys
+    import os
+    # Add parent directory to path for shared module
+    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if parent_dir not in sys.path:
+        sys.path.insert(0, parent_dir)
+    
+    from shared.self_building_discovery import SelfBuildingAgentDiscovery
+    from shared.metrics_collector import AgentMetricsCollector
+    
+    self_building_discovery = SelfBuildingAgentDiscovery(
+        agent_id="agent_svea",
+        agent_registry_url=os.getenv("AGENT_REGISTRY_URL", "http://localhost:8000")
+    )
+    
+    # Initialize metrics collector
+    metrics_collector = AgentMetricsCollector(
+        agent_id="agent_svea",
+        agent_type="swedish_compliance",
+        cloudwatch_namespace="HappyOS/Agents",
+        enable_cloudwatch=os.getenv("ENABLE_CLOUDWATCH_METRICS", "true").lower() == "true"
+    )
+    
+    logger.info("Self-building agent discovery and metrics collector initialized for Agent Svea")
+except Exception as e:
+    logger.warning(f"Failed to initialize self-building integration: {e}")
+    self_building_discovery = None
+    metrics_collector = None
 
 
 class AgentSveaServiceType(Enum):
@@ -265,6 +297,8 @@ class AgentSveaMCPServer:
     
     async def _handle_check_swedish_compliance(self, arguments: Dict[str, Any], headers: MCPHeaders) -> Dict[str, Any]:
         """Handle Swedish compliance checking."""
+        start_time = time.time()
+        
         try:
             document_type = arguments["document_type"]
             document_data = arguments["document_data"]
@@ -282,6 +316,17 @@ class AgentSveaMCPServer:
             
             result = await circuit_breaker.execute(compliance_check)
             
+            # Record metrics
+            if metrics_collector:
+                latency_ms = (time.time() - start_time) * 1000
+                await metrics_collector.record_request(
+                    endpoint="check_swedish_compliance",
+                    method="MCP_TOOL",
+                    status_code=200,
+                    latency_ms=latency_ms,
+                    tenant_id=headers.tenant_id
+                )
+            
             # Send async callback
             await self.mcp_client.send_callback(
                 reply_to=headers.reply_to,
@@ -298,6 +343,23 @@ class AgentSveaMCPServer:
             return {"status": "processing", "message": "Compliance check initiated"}
             
         except Exception as e:
+            # Record error metrics
+            if metrics_collector:
+                latency_ms = (time.time() - start_time) * 1000
+                await metrics_collector.record_request(
+                    endpoint="check_swedish_compliance",
+                    method="MCP_TOOL",
+                    status_code=500,
+                    latency_ms=latency_ms,
+                    tenant_id=headers.tenant_id
+                )
+                await metrics_collector.record_error(
+                    error_type=type(e).__name__,
+                    error_message=str(e),
+                    endpoint="check_swedish_compliance",
+                    tenant_id=headers.tenant_id
+                )
+            
             error = self.error_handler.handle_mcp_error(e, {
                 "trace_id": headers.trace_id,
                 "tenant_id": headers.tenant_id,
@@ -676,6 +738,13 @@ class AgentSveaMCPServer:
                 "last_check": datetime.utcnow().isoformat()
             }
         
+        # Add self-building agent status
+        if self_building_discovery:
+            health_status["self_building_agent"] = {
+                "discovered": self_building_discovery.is_discovered(),
+                "endpoint": self_building_discovery.get_endpoint()
+            }
+        
         return {
             "agent_id": self.agent_id,
             "agent_type": self.agent_type.value,
@@ -684,6 +753,45 @@ class AgentSveaMCPServer:
             "erp_connected": self.erp_client is not None,
             "timestamp": datetime.utcnow().isoformat()
         }
+    
+    async def discover_self_building_agent(self) -> bool:
+        """Discover and connect to self-building agent."""
+        if not self_building_discovery:
+            logger.warning("Self-building discovery not initialized")
+            return False
+        
+        try:
+            discovered = await self_building_discovery.discover_self_building_agent()
+            if discovered:
+                logger.info("Successfully discovered self-building agent")
+                return True
+            else:
+                logger.warning("Self-building agent not found in registry")
+                return False
+        except Exception as e:
+            logger.error(f"Error discovering self-building agent: {e}")
+            return False
+    
+    async def trigger_self_improvement(
+        self,
+        analysis_window_hours: int = 24,
+        max_improvements: int = 3,
+        tenant_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Trigger an improvement cycle for Agent Svea."""
+        if not self_building_discovery or not self_building_discovery.is_discovered():
+            return {
+                "success": False,
+                "error": "Self-building agent not available"
+            }
+        
+        result = await self_building_discovery.trigger_improvement_cycle(
+            analysis_window_hours=analysis_window_hours,
+            max_improvements=max_improvements,
+            tenant_id=tenant_id
+        )
+        
+        return result
     
     async def shutdown(self):
         """Shutdown the MCP server."""
@@ -730,6 +838,10 @@ async def main():
     try:
         if await server.initialize():
             logger.info("Agent Svea MCP Server started successfully")
+            
+            # Discover self-building agent
+            await server.discover_self_building_agent()
+            
             # Keep server running
             while True:
                 await asyncio.sleep(1)
@@ -739,10 +851,28 @@ async def main():
     except KeyboardInterrupt:
         logger.info("Shutting down Agent Svea MCP Server...")
         await server.shutdown()
+        
+        # Flush metrics
+        if metrics_collector:
+            await metrics_collector.close()
+        
+        # Close self-building discovery
+        if self_building_discovery:
+            await self_building_discovery.close()
+        
         return 0
     except Exception as e:
         logger.error(f"Server error: {e}")
         await server.shutdown()
+        
+        # Flush metrics
+        if metrics_collector:
+            await metrics_collector.close()
+        
+        # Close self-building discovery
+        if self_building_discovery:
+            await self_building_discovery.close()
+        
         return 1
 
 

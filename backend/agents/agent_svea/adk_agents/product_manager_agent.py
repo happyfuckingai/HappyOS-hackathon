@@ -7,6 +7,7 @@ Reuses existing Agent Svea business logic and requirements analysis.
 
 import asyncio
 import logging
+import json
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 
@@ -34,6 +35,9 @@ class ProductManagerAgent:
         self.erp_service = self.services.get("erp_service")
         self.compliance_service = self.services.get("compliance_service")
         self.swedish_integration_service = self.services.get("swedish_integration_service")
+        
+        # LLM Service dependency injection (same pattern as Felicia's Finance)
+        self.llm_service = self.services.get("llm_service")
         
         # Product management areas
         self.product_areas = [
@@ -82,77 +86,149 @@ class ProductManagerAgent:
         """
         Analyze Swedish regulatory requirements for ERP system.
         Reuses existing compliance knowledge from Agent Svea.
+        Uses LLM for intelligent regulatory analysis.
         """
         try:
             regulation_type = payload.get("regulation_type", "general")
             business_type = payload.get("business_type", "general")
             
-            # This would integrate with existing compliance analysis
-            requirements_analysis = {
-                "regulation_type": regulation_type,
-                "business_type": business_type,
-                "mandatory_requirements": [],
-                "optional_requirements": [],
-                "implementation_priority": "high",
-                "compliance_deadline": None,
-                "impact_assessment": {}
-            }
+            # Use LLM for intelligent regulatory requirements analysis
+            if self.llm_service:
+                try:
+                    prompt = f"""
+Analysera svenska regulatoriska krav för ERP-system:
+
+Regelverkstyp: {regulation_type}
+Företagstyp: {business_type}
+Payload: {json.dumps(payload, ensure_ascii=False, indent=2)}
+
+Ge svar på svenska i JSON-format:
+{{
+    "regelverkstyp": "{regulation_type}",
+    "företagstyp": "{business_type}",
+    "obligatoriska_krav": ["krav1", "krav2", "krav3"],
+    "valfria_krav": ["krav1", "krav2"],
+    "implementeringsprioritet": "hög|medel|låg",
+    "compliance_deadline": "datum eller null",
+    "konsekvensanalys": {{
+        "utvecklingsinsats": "beskrivning",
+        "compliance_risk": "hög|medel|låg",
+        "affärspåverkan": "beskrivning",
+        "teknisk_komplexitet": "hög|medel|låg"
+    }},
+    "specifika_svenska_krav": ["svenskt krav1", "svenskt krav2"],
+    "myndighetsintegration": ["myndighet1", "myndighet2"]
+}}
+
+Fokusera på svenska regelverket som GDPR, Bokföringslagen (BFL), Skatteverkets krav, och K-rapporter.
+"""
+                    
+                    llm_response = await self.llm_service.generate_completion(
+                        prompt=prompt,
+                        agent_id=self.agent_id,
+                        tenant_id=payload.get("tenant_id", "default"),
+                        model="gpt-4",
+                        temperature=0.2,  # Low temperature for factual regulatory analysis
+                        max_tokens=1000,
+                        response_format="json"
+                    )
+                    
+                    # Parse LLM response
+                    requirements_analysis = json.loads(llm_response["content"])
+                    
+                    return {
+                        "status": "regulatory_requirements_analyzed",
+                        "analysis": requirements_analysis,
+                        "next_steps": [
+                            "Prioritera krav efter compliance-deadline",
+                            "Uppskatta implementeringsinsats",
+                            "Skapa tekniska specifikationer",
+                            "Planera implementeringsfaser"
+                        ],
+                        "llm_enhanced": True,
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                    
+                except Exception as llm_error:
+                    self.logger.warning(f"LLM regulatory analysis failed: {llm_error}, using fallback")
+                    # Fall through to fallback logic
             
-            # Analyze based on regulation type
-            if regulation_type == "accounting_act":
-                requirements_analysis["mandatory_requirements"] = [
-                    "BAS chart of accounts implementation",
-                    "Double-entry bookkeeping system",
-                    "Audit trail maintenance (10 years)",
-                    "SIE format export capability",
-                    "VAT calculation and reporting",
-                    "Annual report generation"
-                ]
-                requirements_analysis["optional_requirements"] = [
-                    "Real-time compliance monitoring",
-                    "Automated report submission",
-                    "Multi-company consolidation"
-                ]
-                
-            elif regulation_type == "gdpr":
-                requirements_analysis["mandatory_requirements"] = [
-                    "Data subject consent management",
-                    "Right to erasure implementation",
-                    "Data portability features",
-                    "Breach notification system",
-                    "Privacy by design architecture"
-                ]
-                
-            elif regulation_type == "tax_reporting":
-                requirements_analysis["mandatory_requirements"] = [
-                    "Skatteverket API integration",
-                    "VAT return automation",
-                    "Employer tax reporting",
-                    "Statistical reporting (SCB)",
-                    "K-report generation"
-                ]
-            
-            # Impact assessment
-            requirements_analysis["impact_assessment"] = {
-                "development_effort": "6-12 months",
-                "compliance_risk": "high" if not requirements_analysis["mandatory_requirements"] else "low",
-                "business_impact": "critical for Swedish operations",
-                "technical_complexity": "medium to high"
-            }
-            
-            return {
-                "status": "regulatory_requirements_analyzed",
-                "analysis": requirements_analysis,
-                "next_steps": [
-                    "Prioritize requirements by compliance deadline",
-                    "Estimate implementation effort",
-                    "Create technical specifications",
-                    "Plan implementation phases"
-                ]
-            }
+            # Fallback to rule-based regulatory analysis
+            return await self._fallback_analyze_regulatory_requirements(regulation_type, business_type)
             
         except Exception as e:
             return {"error": str(e)}
+    
+    async def _fallback_analyze_regulatory_requirements(
+        self,
+        regulation_type: str,
+        business_type: str
+    ) -> Dict[str, Any]:
+        """Fallback rule-based regulatory requirements analysis."""
+        requirements_analysis = {
+            "regulation_type": regulation_type,
+            "business_type": business_type,
+            "mandatory_requirements": [],
+            "optional_requirements": [],
+            "implementation_priority": "high",
+            "compliance_deadline": None,
+            "impact_assessment": {}
+        }
+        
+        # Analyze based on regulation type
+        if regulation_type == "accounting_act":
+            requirements_analysis["mandatory_requirements"] = [
+                "BAS chart of accounts implementation",
+                "Double-entry bookkeeping system",
+                "Audit trail maintenance (10 years)",
+                "SIE format export capability",
+                "VAT calculation and reporting",
+                "Annual report generation"
+            ]
+            requirements_analysis["optional_requirements"] = [
+                "Real-time compliance monitoring",
+                "Automated report submission",
+                "Multi-company consolidation"
+            ]
+            
+        elif regulation_type == "gdpr":
+            requirements_analysis["mandatory_requirements"] = [
+                "Data subject consent management",
+                "Right to erasure implementation",
+                "Data portability features",
+                "Breach notification system",
+                "Privacy by design architecture"
+            ]
+            
+        elif regulation_type == "tax_reporting":
+            requirements_analysis["mandatory_requirements"] = [
+                "Skatteverket API integration",
+                "VAT return automation",
+                "Employer tax reporting",
+                "Statistical reporting (SCB)",
+                "K-report generation"
+            ]
+        
+        # Impact assessment
+        requirements_analysis["impact_assessment"] = {
+            "development_effort": "6-12 months",
+            "compliance_risk": "high" if not requirements_analysis["mandatory_requirements"] else "low",
+            "business_impact": "critical for Swedish operations",
+            "technical_complexity": "medium to high"
+        }
+        
+        return {
+            "status": "regulatory_requirements_analyzed",
+            "analysis": requirements_analysis,
+            "next_steps": [
+                "Prioritize requirements by compliance deadline",
+                "Estimate implementation effort",
+                "Create technical specifications",
+                "Plan implementation phases"
+            ],
+            "llm_enhanced": False,
+            "fallback_used": True
+        }
     
     async def _prioritize_erp_features(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -584,6 +660,23 @@ class ProductManagerAgent:
                 "mcp_server_integration": "Direct aliasing to existing functionality",
                 "service_reuse": "ERP, Compliance, and Swedish Integration services",
                 "feature_coverage": "85% of requirements already implemented"
+            },
+            "services_available": {
+                "erp_service": self.erp_service is not None,
+                "compliance_service": self.compliance_service is not None,
+                "swedish_integration_service": self.swedish_integration_service is not None,
+                "llm_service": self.llm_service is not None
+            },
+            "llm_integration": {
+                "enabled": self.llm_service is not None,
+                "model": "gpt-4",
+                "language": "svenska",
+                "fallback_available": True,
+                "use_cases": [
+                    "Regulatory requirements analysis",
+                    "Feature prioritization",
+                    "Stakeholder requirements gathering"
+                ]
             },
             "timestamp": datetime.now().isoformat()
         }

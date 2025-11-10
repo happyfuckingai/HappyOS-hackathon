@@ -8,17 +8,28 @@ import logging
 import os
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-
-try:
-    import google.generativeai as genai
-    GENAI_AVAILABLE = True
-except ImportError:
-    genai = None
-    GENAI_AVAILABLE = False
+import json
 
 import httpx
 
 from ..config_loader import ADKConfig
+
+# Import LLMService - use TYPE_CHECKING for type hints only
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.core.interfaces import LLMService
+else:
+    # Runtime import with fallback
+    try:
+        from backend.core.interfaces import LLMService
+    except ImportError:
+        # For test environment, create a stub
+        from typing import Protocol
+        class LLMService(Protocol):
+            """Stub LLMService for testing."""
+            async def generate_completion(self, **kwargs): ...
+            async def generate_streaming_completion(self, **kwargs): ...
+            async def get_usage_stats(self, **kwargs): ...
 
 
 class BankingAgent:
@@ -27,18 +38,14 @@ class BankingAgent:
     Like a traditional bank teller but with intelligent processing
     """
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None, llm_service: Optional[LLMService] = None):
         self.config = ADKConfig(config_path)
         self.logger = logging.getLogger(__name__)
 
-        # Initialize Google GenAI client for intelligent processing
-        # API key should be set as environment variable GOOGLE_API_KEY
-        if GENAI_AVAILABLE:
-            genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
-            self.llm_model = genai.GenerativeModel('gemini-1.5-flash')
-        else:
-            self.llm_model = None
-            self.logger.warning("Google GenAI not available - running in offline mode")
+        # Initialize LLM service (centralized) - will use Gemini model
+        self.llm_service = llm_service
+        if not self.llm_service:
+            self.logger.warning("No LLM service provided - running with fallback logic only")
 
         # Banking knowledge base
         self.knowledge_base = {
@@ -96,6 +103,15 @@ class BankingAgent:
     async def _analyze_request(self, query: str, context: Dict[str, Any]) -> Dict[str, Any]:
         """Use LLM to analyze and validate banking request"""
         try:
+            if not self.llm_service:
+                return {
+                    "operation": "balance_inquiry",
+                    "valid": True,
+                    "confidence": 0.5,
+                    "parameters": ["account_id"],
+                    "security_level": "verified"
+                }
+
             prompt = f"""
             Analyze this banking request and determine:
             1. What operation is being requested
@@ -117,16 +133,18 @@ class BankingAgent:
             }}
             """
 
-            response = self.llm_model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.1,
-                    max_output_tokens=200
-                )
+            response = await self.llm_service.generate_completion(
+                prompt=prompt,
+                agent_id="felicias_finance.banking",
+                tenant_id="felicia",
+                model="gemini-1.5-flash",
+                temperature=0.1,
+                max_tokens=200,
+                response_format="json"
             )
 
             # For demo purposes, return mock response
-            # In production, would parse response.text as JSON
+            # In production, would parse response content as JSON
             return {
                 "operation": "balance_inquiry",  # Default for demo
                 "valid": True,
@@ -221,6 +239,15 @@ class BankingAgent:
     async def _handle_general_banking_query(self, query: str, context: Dict[str, Any]) -> Dict[str, Any]:
         """Handle general banking questions using LLM"""
         try:
+            if not self.llm_service:
+                return {
+                    "operation": "general_query",
+                    "query": query,
+                    "response": "Thank you for your banking question. I'm here to help with all your financial needs.",
+                    "agent": "banking_agent",
+                    "timestamp": datetime.now().isoformat()
+                }
+
             prompt = f"""
             Answer this banking-related question helpfully and accurately.
             Be professional, clear, and provide specific guidance when appropriate.
@@ -231,16 +258,18 @@ class BankingAgent:
             Provide a helpful response focused on banking services and best practices.
             """
 
-            response = self.llm_model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.3,
-                    max_output_tokens=300
-                )
+            response = await self.llm_service.generate_completion(
+                prompt=prompt,
+                agent_id="felicias_finance.banking",
+                tenant_id="felicia",
+                model="gemini-1.5-flash",
+                temperature=0.3,
+                max_tokens=300,
+                response_format="text"
             )
 
             # For demo purposes, return mock response
-            # In production, would use response.text
+            # In production, would use response content
             return {
                 "operation": "general_query",
                 "query": query,
@@ -326,6 +355,9 @@ class BankingAgent:
             balance = balance_data.get("balance", 0)
             available = balance_data.get("available_balance", balance)
 
+            if not self.llm_service:
+                return f"Your available balance is ${available}. Total balance is ${balance}."
+
             prompt = f"""
             Provide a brief, helpful explanation of this account balance:
             Total Balance: ${balance}
@@ -334,16 +366,18 @@ class BankingAgent:
             Keep it to 1-2 sentences, focusing on what's immediately usable.
             """
 
-            response = self.llm_model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.2,
-                    max_output_tokens=100
-                )
+            response = await self.llm_service.generate_completion(
+                prompt=prompt,
+                agent_id="felicias_finance.banking",
+                tenant_id="felicia",
+                model="gemini-1.5-flash",
+                temperature=0.2,
+                max_tokens=100,
+                response_format="text"
             )
 
             # For demo purposes, return static response
-            # In production, would use response.text
+            # In production, would use response content
             return f"Your available balance is ${available}. Total balance is ${balance}."
 
         except Exception:

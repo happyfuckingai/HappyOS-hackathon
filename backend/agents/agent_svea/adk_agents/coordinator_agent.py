@@ -7,6 +7,7 @@ Reuses existing Agent Svea MCP server and coordination logic.
 
 import asyncio
 import logging
+import json
 from typing import Dict, Any, Optional
 from datetime import datetime
 
@@ -38,6 +39,9 @@ class CoordinatorAgent:
         self.erp_service = self.services.get("erp_service")
         self.compliance_service = self.services.get("compliance_service")
         self.swedish_integration_service = self.services.get("swedish_integration_service")
+        
+        # LLM Service dependency injection (same pattern as Felicia's Finance)
+        self.llm_service = self.services.get("llm_service")
         
         # Reuse existing Agent Svea MCP server logic
         self.mcp_server = None  # Will be initialized from existing agent_svea_mcp_server.py
@@ -80,47 +84,122 @@ class CoordinatorAgent:
         """
         Coordinate Swedish compliance workflow.
         Reuses existing compliance logic through compliance_service.
+        Uses LLM for intelligent workflow coordination.
         """
         try:
             workflow_id = f"compliance_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             compliance_type = payload.get("compliance_type", "general")
             
-            # Use compliance service if available
-            compliance_result = None
-            if self.compliance_service:
-                if compliance_type == "bas_accounting":
-                    # Validate BAS accounts in the workflow
-                    account_data = payload.get("account_data", {})
-                    if account_data.get("account_number"):
-                        compliance_result = await self.compliance_service.validate_bas_account(
-                            account_data["account_number"]
-                        )
-                elif compliance_type == "vat_reporting":
-                    # Validate VAT calculations
-                    vat_data = payload.get("vat_data", {})
-                    if vat_data.get("amount"):
-                        compliance_result = await self.compliance_service.calculate_swedish_vat(
-                            vat_data["amount"], vat_data.get("rate_type", "standard")
-                        )
+            # Use LLM for intelligent workflow coordination
+            if self.llm_service:
+                try:
+                    prompt = f"""
+Analysera detta svenska compliance-workflow och skapa en koordineringsplan:
+
+Workflow ID: {workflow_id}
+Compliance-typ: {compliance_type}
+Payload: {json.dumps(payload, ensure_ascii=False, indent=2)}
+
+Ge svar på svenska i JSON-format:
+{{
+    "workflow_prioritet": "hög|medel|låg",
+    "nödvändiga_steg": ["steg1", "steg2", "steg3"],
+    "agent_delegering": {{
+        "architect": "uppgift för arkitekt",
+        "implementation": "uppgift för implementation",
+        "qa": "uppgift för QA"
+    }},
+    "tidsuppskattning": "uppskattad tid",
+    "compliance_krav": ["krav1", "krav2"],
+    "risker": ["risk1", "risk2"]
+}}
+"""
+                    
+                    llm_response = await self.llm_service.generate_completion(
+                        prompt=prompt,
+                        agent_id=self.agent_id,
+                        tenant_id=payload.get("tenant_id", "default"),
+                        model="gpt-4",
+                        temperature=0.2,  # Low temperature for factual compliance coordination
+                        max_tokens=800,
+                        response_format="json"
+                    )
+                    
+                    # Parse LLM response
+                    coordination_plan = json.loads(llm_response["content"])
+                    
+                    # Use compliance service if available for validation
+                    compliance_result = None
+                    if self.compliance_service:
+                        if compliance_type == "bas_accounting":
+                            account_data = payload.get("account_data", {})
+                            if account_data.get("account_number"):
+                                compliance_result = await self.compliance_service.validate_bas_account(
+                                    account_data["account_number"]
+                                )
+                        elif compliance_type == "vat_reporting":
+                            vat_data = payload.get("vat_data", {})
+                            if vat_data.get("amount"):
+                                compliance_result = await self.compliance_service.calculate_swedish_vat(
+                                    vat_data["amount"], vat_data.get("rate_type", "standard")
+                                )
+                    
+                    return {
+                        "status": "workflow_coordinated",
+                        "workflow_id": workflow_id,
+                        "compliance_type": compliance_type,
+                        "coordination_plan": coordination_plan,
+                        "compliance_validation": compliance_result,
+                        "llm_enhanced": True,
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                    
+                except Exception as llm_error:
+                    self.logger.warning(f"LLM coordination failed: {llm_error}, using fallback")
+                    # Fall through to fallback logic
             
-            # Delegate to architect for technical design
-            # Delegate to implementation for ERP integration
-            # Delegate to QA for compliance validation
-            
-            return {
-                "status": "workflow_coordinated",
-                "workflow_id": workflow_id,
-                "compliance_type": compliance_type,
-                "compliance_validation": compliance_result,
-                "next_steps": [
-                    "Technical architecture design",
-                    "ERP system integration", 
-                    "Compliance validation"
-                ]
-            }
+            # Fallback to rule-based coordination
+            return await self._fallback_coordinate_compliance_workflow(payload, workflow_id, compliance_type)
             
         except Exception as e:
             return {"error": str(e)}
+    
+    async def _fallback_coordinate_compliance_workflow(
+        self,
+        payload: Dict[str, Any],
+        workflow_id: str,
+        compliance_type: str
+    ) -> Dict[str, Any]:
+        """Fallback rule-based compliance workflow coordination."""
+        # Use compliance service if available
+        compliance_result = None
+        if self.compliance_service:
+            if compliance_type == "bas_accounting":
+                account_data = payload.get("account_data", {})
+                if account_data.get("account_number"):
+                    compliance_result = await self.compliance_service.validate_bas_account(
+                        account_data["account_number"]
+                    )
+            elif compliance_type == "vat_reporting":
+                vat_data = payload.get("vat_data", {})
+                if vat_data.get("amount"):
+                    compliance_result = await self.compliance_service.calculate_swedish_vat(
+                        vat_data["amount"], vat_data.get("rate_type", "standard")
+                    )
+        
+        return {
+            "status": "workflow_coordinated",
+            "workflow_id": workflow_id,
+            "compliance_type": compliance_type,
+            "compliance_validation": compliance_result,
+            "next_steps": [
+                "Technical architecture design",
+                "ERP system integration", 
+                "Compliance validation"
+            ],
+            "llm_enhanced": False,
+            "fallback_used": True
+        }
     
     async def _orchestrate_erp_integration(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -403,7 +482,14 @@ class CoordinatorAgent:
             "services_available": {
                 "erp_service": self.erp_service is not None,
                 "compliance_service": self.compliance_service is not None,
-                "swedish_integration_service": self.swedish_integration_service is not None
+                "swedish_integration_service": self.swedish_integration_service is not None,
+                "llm_service": self.llm_service is not None
+            },
+            "llm_integration": {
+                "enabled": self.llm_service is not None,
+                "model": "gpt-4",
+                "language": "svenska",
+                "fallback_available": True
             },
             "timestamp": datetime.now().isoformat()
         }

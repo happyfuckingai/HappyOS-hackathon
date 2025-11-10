@@ -7,6 +7,7 @@ Reuses existing Agent Svea implementation logic from MCP server and services.
 
 import asyncio
 import logging
+import json
 from typing import Dict, Any, Optional
 from datetime import datetime
 
@@ -34,6 +35,9 @@ class ImplementationAgent:
         self.erp_service = self.services.get("erp_service")
         self.compliance_service = self.services.get("compliance_service")
         self.swedish_integration_service = self.services.get("swedish_integration_service")
+        
+        # LLM Service dependency injection (same pattern as Felicia's Finance)
+        self.llm_service = self.services.get("llm_service")
         
         # Implementation capabilities
         self.implementation_areas = [
@@ -68,52 +72,127 @@ class ImplementationAgent:
         """
         Implement ERPNext customizations for Swedish requirements.
         Reuses existing ERPNext integration logic from agent_svea_mcp_server.py.
+        Uses LLM for intelligent implementation planning.
         """
         try:
             customization_type = payload.get("customization_type")
             requirements = payload.get("requirements", [])
             
-            # This would integrate with existing ERPNext logic
-            implementation_plan = {
-                "customization_type": customization_type,
-                "implementation_steps": [
-                    "Create custom fields for Swedish requirements",
-                    "Implement BAS chart of accounts",
-                    "Add Swedish VAT calculations",
-                    "Create SIE export functionality",
-                    "Implement Skatteverket reporting"
-                ],
-                "files_modified": [
-                    "accounts/doctype/account/account.py",
-                    "accounts/report/general_ledger/general_ledger.py",
-                    "regional/sweden/setup.py"
-                ],
-                "database_changes": [
-                    "Add Swedish VAT fields",
-                    "Create BAS account mapping table",
-                    "Add compliance tracking fields"
-                ]
-            }
+            # Use LLM for intelligent implementation planning
+            if self.llm_service:
+                try:
+                    prompt = f"""
+Planera implementation av ERPNext-anpassning för svenska krav:
+
+Anpassningstyp: {customization_type}
+Krav: {json.dumps(requirements, ensure_ascii=False, indent=2)}
+Payload: {json.dumps(payload, ensure_ascii=False, indent=2)}
+
+Ge svar på svenska i JSON-format:
+{{
+    "anpassningstyp": "{customization_type}",
+    "implementeringssteg": ["steg1", "steg2", "steg3"],
+    "filer_att_modifiera": ["fil1.py", "fil2.py"],
+    "databasändringar": ["ändring1", "ändring2"],
+    "svensk_bokföringslogik": ["logik1", "logik2"],
+    "bas_kontointegration": "beskrivning",
+    "sie_exportfunktionalitet": "beskrivning",
+    "skatteverket_integration": "beskrivning",
+    "testplan": ["test1", "test2"],
+    "tidsuppskattning": "uppskattad tid",
+    "risker": ["risk1", "risk2"]
+}}
+
+Fokusera på svensk bokföringslogik, BAS-kontoplan, SIE-export och Skatteverkets krav.
+"""
+                    
+                    llm_response = await self.llm_service.generate_completion(
+                        prompt=prompt,
+                        agent_id=self.agent_id,
+                        tenant_id=payload.get("tenant_id", "default"),
+                        model="gpt-4",
+                        temperature=0.3,  # Balanced for implementation planning
+                        max_tokens=1000,
+                        response_format="json"
+                    )
+                    
+                    # Parse LLM response
+                    implementation_plan = json.loads(llm_response["content"])
+                    
+                    # Execute implementation using existing MCP server logic
+                    implementation_result = await self._execute_erp_implementation(
+                        customization_type, requirements
+                    )
+                    
+                    return {
+                        "status": "erp_customization_implemented",
+                        "customization_type": customization_type,
+                        "implementation_plan": implementation_plan,
+                        "result": implementation_result,
+                        "next_steps": [
+                            "Testa anpassningar",
+                            "Deploya till staging",
+                            "Användaracceptanstest"
+                        ],
+                        "llm_enhanced": True,
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                    
+                except Exception as llm_error:
+                    self.logger.warning(f"LLM implementation planning failed: {llm_error}, using fallback")
+                    # Fall through to fallback logic
             
-            # Execute implementation using existing MCP server logic
-            implementation_result = await self._execute_erp_implementation(
-                customization_type, requirements
-            )
-            
-            return {
-                "status": "erp_customization_implemented",
-                "customization_type": customization_type,
-                "implementation_plan": implementation_plan,
-                "result": implementation_result,
-                "next_steps": [
-                    "Test customizations",
-                    "Deploy to staging",
-                    "User acceptance testing"
-                ]
-            }
+            # Fallback to rule-based implementation planning
+            return await self._fallback_implement_erp_customization(customization_type, requirements)
             
         except Exception as e:
             return {"error": str(e)}
+    
+    async def _fallback_implement_erp_customization(
+        self,
+        customization_type: str,
+        requirements: list
+    ) -> Dict[str, Any]:
+        """Fallback rule-based ERP customization implementation."""
+        implementation_plan = {
+            "customization_type": customization_type,
+            "implementation_steps": [
+                "Create custom fields for Swedish requirements",
+                "Implement BAS chart of accounts",
+                "Add Swedish VAT calculations",
+                "Create SIE export functionality",
+                "Implement Skatteverket reporting"
+            ],
+            "files_modified": [
+                "accounts/doctype/account/account.py",
+                "accounts/report/general_ledger/general_ledger.py",
+                "regional/sweden/setup.py"
+            ],
+            "database_changes": [
+                "Add Swedish VAT fields",
+                "Create BAS account mapping table",
+                "Add compliance tracking fields"
+            ]
+        }
+        
+        # Execute implementation using existing MCP server logic
+        implementation_result = await self._execute_erp_implementation(
+            customization_type, requirements
+        )
+        
+        return {
+            "status": "erp_customization_implemented",
+            "customization_type": customization_type,
+            "implementation_plan": implementation_plan,
+            "result": implementation_result,
+            "next_steps": [
+                "Test customizations",
+                "Deploy to staging",
+                "User acceptance testing"
+            ],
+            "llm_enhanced": False,
+            "fallback_used": True
+        }
     
     async def _implement_compliance_automation(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -448,7 +527,19 @@ class ImplementationAgent:
             "services_available": {
                 "erp_service": self.erp_service is not None,
                 "compliance_service": self.compliance_service is not None,
-                "swedish_integration_service": self.swedish_integration_service is not None
+                "swedish_integration_service": self.swedish_integration_service is not None,
+                "llm_service": self.llm_service is not None
+            },
+            "llm_integration": {
+                "enabled": self.llm_service is not None,
+                "model": "gpt-4",
+                "language": "svenska",
+                "fallback_available": True,
+                "use_cases": [
+                    "ERP customization planning",
+                    "Compliance automation implementation",
+                    "API integration design"
+                ]
             },
             "existing_functionality_aliased": {
                 "mcp_server_tools": [

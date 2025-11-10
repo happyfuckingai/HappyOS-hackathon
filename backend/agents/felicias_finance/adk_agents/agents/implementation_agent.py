@@ -7,11 +7,28 @@ import asyncio
 import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
+import json
 
-from openai import AsyncOpenAI
 import httpx
 
 from ..config_loader import ADKConfig
+
+# Import LLMService - use TYPE_CHECKING for type hints only
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.core.interfaces import LLMService
+else:
+    # Runtime import with fallback
+    try:
+        from backend.core.interfaces import LLMService
+    except ImportError:
+        # For test environment, create a stub
+        from typing import Protocol
+        class LLMService(Protocol):
+            """Stub LLMService for testing."""
+            async def generate_completion(self, **kwargs): ...
+            async def generate_streaming_completion(self, **kwargs): ...
+            async def get_usage_stats(self, **kwargs): ...
 
 
 class ImplementationAgent:
@@ -20,14 +37,14 @@ class ImplementationAgent:
     Handles actual trade execution, smart contract interactions, and operations
     """
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None, llm_service: Optional[LLMService] = None):
         self.config = ADKConfig(config_path)
         self.logger = logging.getLogger(__name__)
 
-        # Initialize LLM for execution planning
-        self.llm_client = AsyncOpenAI(
-            api_key=getattr(self.config.adk, 'openai_api_key', None)
-        )
+        # Initialize LLM service (centralized)
+        self.llm_service = llm_service
+        if not self.llm_service:
+            self.logger.warning("No LLM service provided - running with fallback logic only")
 
         # Execution capabilities
         self.execution_methods = {
@@ -147,6 +164,9 @@ class ImplementationAgent:
     async def _create_execution_plan(self, trading_plan: Dict[str, Any]) -> Dict[str, Any]:
         """Create detailed execution plan from trading plan"""
         try:
+            if not self.llm_service:
+                return self._fallback_execution_plan()
+
             # Use LLM to create optimized execution sequence
             prompt = f"""
             Create a detailed execution plan for this trading strategy:
@@ -173,11 +193,14 @@ class ImplementationAgent:
             }}
             """
 
-            response = await self.llm_client.chat.completions.create(
+            response = await self.llm_service.generate_completion(
+                prompt=prompt,
+                agent_id="felicias_finance.implementation",
+                tenant_id="felicia",
                 model="gpt-4",
-                messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=600
+                max_tokens=600,
+                response_format="json"
             )
 
             # Return structured execution plan

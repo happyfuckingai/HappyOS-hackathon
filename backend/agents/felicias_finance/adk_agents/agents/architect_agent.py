@@ -7,10 +7,26 @@ import asyncio
 import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-
-from openai import AsyncOpenAI
+import json
 
 from ..config_loader import ADKConfig
+
+# Import LLMService - use TYPE_CHECKING for type hints only
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.core.interfaces import LLMService
+else:
+    # Runtime import with fallback
+    try:
+        from backend.core.interfaces import LLMService
+    except ImportError:
+        # For test environment, create a stub
+        from typing import Protocol
+        class LLMService(Protocol):
+            """Stub LLMService for testing."""
+            async def generate_completion(self, **kwargs): ...
+            async def generate_streaming_completion(self, **kwargs): ...
+            async def get_usage_stats(self, **kwargs): ...
 
 
 class ArchitectAgent:
@@ -19,14 +35,14 @@ class ArchitectAgent:
     Translates strategy into executable technical plans
     """
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None, llm_service: Optional[LLMService] = None):
         self.config = ADKConfig(config_path)
         self.logger = logging.getLogger(__name__)
 
-        # Initialize LLM for technical design
-        self.llm_client = AsyncOpenAI(
-            api_key=getattr(self.config.adk, 'openai_api_key', None)
-        )
+        # Initialize LLM service (centralized)
+        self.llm_service = llm_service
+        if not self.llm_service:
+            self.logger.warning("No LLM service provided - running with fallback logic only")
 
         # Technical design knowledge
         self.design_patterns = {
@@ -134,6 +150,9 @@ class ArchitectAgent:
     async def _create_technical_design(self, objectives: List[str], allocation: Dict[str, Any], risk_params: Dict[str, Any]) -> Dict[str, Any]:
         """Create comprehensive technical design using LLM"""
         try:
+            if not self.llm_service:
+                return self._fallback_technical_design()
+
             prompt = f"""
             Design a technical implementation plan for this investment strategy:
 
@@ -160,11 +179,14 @@ class ArchitectAgent:
             }}
             """
 
-            response = await self.llm_client.chat.completions.create(
+            response = await self.llm_service.generate_completion(
+                prompt=prompt,
+                agent_id="felicias_finance.architect",
+                tenant_id="felicia",
                 model="gpt-4",
-                messages=[{"role": "user", "content": prompt}],
                 temperature=0.2,
-                max_tokens=800
+                max_tokens=800,
+                response_format="json"
             )
 
             # Return structured technical design

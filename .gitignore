@@ -1,0 +1,11 @@
+# Ignore Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Ignore environment and editor files
+.env
+.vscode/
+
+# Ignore build artifacts
+backend/core/self_building/

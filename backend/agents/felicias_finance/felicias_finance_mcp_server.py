@@ -42,6 +42,37 @@ from happyos_sdk import (
 setup_logging(level=logging.INFO)
 logger = get_logger(__name__)
 
+# Initialize self-building agent discovery
+try:
+    import sys
+    import os
+    # Add parent directory to path for shared module
+    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if parent_dir not in sys.path:
+        sys.path.insert(0, parent_dir)
+    
+    from shared.self_building_discovery import SelfBuildingAgentDiscovery
+    from shared.metrics_collector import AgentMetricsCollector
+    
+    self_building_discovery = SelfBuildingAgentDiscovery(
+        agent_id="felicias_finance",
+        agent_registry_url=os.getenv("AGENT_REGISTRY_URL", "http://localhost:8000")
+    )
+    
+    # Initialize metrics collector
+    metrics_collector = AgentMetricsCollector(
+        agent_id="felicias_finance",
+        agent_type="financial_services",
+        cloudwatch_namespace="HappyOS/Agents",
+        enable_cloudwatch=os.getenv("ENABLE_CLOUDWATCH_METRICS", "true").lower() == "true"
+    )
+    
+    logger.info("Self-building agent discovery and metrics collector initialized for Felicia's Finance")
+except Exception as e:
+    logger.warning(f"Failed to initialize self-building integration: {e}")
+    self_building_discovery = None
+    metrics_collector = None
+
 # Environment configuration
 AGENT_ID = os.getenv('FELICIAS_FINANCE_AGENT_ID', 'felicias_finance')
 TENANT_ID = os.getenv('TENANT_ID', 'default')
@@ -132,6 +163,13 @@ class StandardizedMCPServer:
             
             # Add Felicia's Finance specific metrics
             health_response.agent_metrics.active_connections = 0  # Would track actual connections
+            
+            # Add self-building agent status
+            if self_building_discovery:
+                health_response.dependencies["self_building_agent"] = {
+                    "discovered": self_building_discovery.is_discovered(),
+                    "endpoint": self_building_discovery.get_endpoint()
+                }
             
             # Record health metrics
             metrics_collector = get_metrics_collector("felicias_finance", "felicias_finance")
@@ -241,6 +279,9 @@ class FeliciasFinanceMCPServer(StandardizedMCPServer):
             
             # Validate AWS services
             await self._validate_aws_services()
+            
+            # Discover self-building agent
+            await self.discover_self_building_agent()
             
             self.is_initialized = True
             logger.info("Felicia's Finance MCP Server initialized successfully")
@@ -1025,6 +1066,45 @@ class FeliciasFinanceMCPServer(StandardizedMCPServer):
             logger.error(f"Market analysis failed: {e}")
             return {"success": False, "error": str(e)}
     
+    async def discover_self_building_agent(self) -> bool:
+        """Discover and connect to self-building agent."""
+        if not self_building_discovery:
+            logger.warning("Self-building discovery not initialized")
+            return False
+        
+        try:
+            discovered = await self_building_discovery.discover_self_building_agent()
+            if discovered:
+                logger.info("Successfully discovered self-building agent")
+                return True
+            else:
+                logger.warning("Self-building agent not found in registry")
+                return False
+        except Exception as e:
+            logger.error(f"Error discovering self-building agent: {e}")
+            return False
+    
+    async def trigger_self_improvement(
+        self,
+        analysis_window_hours: int = 24,
+        max_improvements: int = 3,
+        tenant_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Trigger an improvement cycle for Felicia's Finance."""
+        if not self_building_discovery or not self_building_discovery.is_discovered():
+            return {
+                "success": False,
+                "error": "Self-building agent not available"
+            }
+        
+        result = await self_building_discovery.trigger_improvement_cycle(
+            analysis_window_hours=analysis_window_hours,
+            max_improvements=max_improvements,
+            tenant_id=tenant_id
+        )
+        
+        return result
+    
     async def shutdown(self):
         """Shutdown Felicia's Finance MCP Server."""
         try:
@@ -1033,6 +1113,14 @@ class FeliciasFinanceMCPServer(StandardizedMCPServer):
             
             if self.a2a_client:
                 await self.a2a_client.disconnect()
+            
+            # Flush metrics
+            if metrics_collector:
+                await metrics_collector.close()
+            
+            # Close self-building discovery
+            if self_building_discovery:
+                await self_building_discovery.close()
             
             self.is_initialized = False
             logger.info("Felicia's Finance MCP Server shutdown completed")

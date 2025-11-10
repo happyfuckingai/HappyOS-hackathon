@@ -7,10 +7,26 @@ import asyncio
 import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-
-from openai import AsyncOpenAI
+import json
 
 from ..config_loader import ADKConfig
+
+# Import LLMService - use TYPE_CHECKING for type hints only
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.core.interfaces import LLMService
+else:
+    # Runtime import with fallback
+    try:
+        from backend.core.interfaces import LLMService
+    except ImportError:
+        # For test environment, create a stub
+        from typing import Protocol
+        class LLMService(Protocol):
+            """Stub LLMService for testing."""
+            async def generate_completion(self, **kwargs): ...
+            async def generate_streaming_completion(self, **kwargs): ...
+            async def get_usage_stats(self, **kwargs): ...
 
 
 class ProductManagerAgent:
@@ -19,14 +35,14 @@ class ProductManagerAgent:
     Like a portfolio manager but with AI-driven strategic planning
     """
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None, llm_service: Optional[LLMService] = None):
         self.config = ADKConfig(config_path)
         self.logger = logging.getLogger(__name__)
 
-        # Initialize LLM for strategic thinking
-        self.llm_client = AsyncOpenAI(
-            api_key=getattr(self.config.adk, 'openai_api_key', None)
-        )
+        # Initialize LLM service (centralized)
+        self.llm_service = llm_service
+        if not self.llm_service:
+            self.logger.warning("No LLM service provided - running with fallback logic only")
 
         # Strategic knowledge base
         self.strategies = {
@@ -128,6 +144,9 @@ class ProductManagerAgent:
     async def _analyze_mission(self, mission: str, constraints: Dict[str, Any], timeline: str) -> Dict[str, Any]:
         """Use LLM to analyze investment mission"""
         try:
+            if not self.llm_service:
+                return self._fallback_mission_analysis(mission, constraints)
+
             prompt = f"""
             Analyze this investment mission and define clear objectives:
 
@@ -149,11 +168,14 @@ class ProductManagerAgent:
             }}
             """
 
-            response = await self.llm_client.chat.completions.create(
+            response = await self.llm_service.generate_completion(
+                prompt=prompt,
+                agent_id="felicias_finance.product_manager",
+                tenant_id="felicia",
                 model="gpt-4",
-                messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,
-                max_tokens=500
+                max_tokens=500,
+                response_format="json"
             )
 
             # Parse and return structured analysis
@@ -206,6 +228,9 @@ class ProductManagerAgent:
     async def _craft_strategy(self, objectives: List[str], risk_tolerance: str) -> Dict[str, Any]:
         """Craft detailed investment strategy"""
         try:
+            if not self.llm_service:
+                return self._fallback_strategy()
+
             strategy_profile = self.strategies.get(risk_tolerance, self.strategies["balanced"])
 
             prompt = f"""
@@ -225,11 +250,14 @@ class ProductManagerAgent:
             }}
             """
 
-            response = await self.llm_client.chat.completions.create(
+            response = await self.llm_service.generate_completion(
+                prompt=prompt,
+                agent_id="felicias_finance.product_manager",
+                tenant_id="felicia",
                 model="gpt-4",
-                messages=[{"role": "user", "content": prompt}],
                 temperature=0.4,
-                max_tokens=400
+                max_tokens=400,
+                response_format="json"
             )
 
             return {

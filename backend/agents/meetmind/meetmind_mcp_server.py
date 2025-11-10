@@ -91,6 +91,58 @@ except Exception as e:
     logger.error(f"Failed to initialize MCP Tools Handler: {e}")
     mcp_tools_handler = None
 
+# Initialize self-building agent discovery
+try:
+    import sys
+    import os
+    # Add parent directory to path for shared module
+    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if parent_dir not in sys.path:
+        sys.path.insert(0, parent_dir)
+    
+    from shared.self_building_discovery import SelfBuildingAgentDiscovery
+    from shared.metrics_collector import AgentMetricsCollector
+    from shared.improvement_coordinator import ImprovementCoordinator
+    from shared.improvement_notifier import ImprovementNotifier
+    
+    self_building_discovery = SelfBuildingAgentDiscovery(
+        agent_id="meetmind",
+        agent_registry_url=os.getenv("AGENT_REGISTRY_URL", "http://localhost:8000")
+    )
+    
+    # Initialize metrics collector
+    metrics_collector = AgentMetricsCollector(
+        agent_id="meetmind",
+        agent_type="meeting_intelligence",
+        cloudwatch_namespace="HappyOS/Agents",
+        enable_cloudwatch=os.getenv("ENABLE_CLOUDWATCH_METRICS", "true").lower() == "true"
+    )
+    
+    # Initialize improvement coordinator
+    improvement_coordinator = ImprovementCoordinator(
+        agent_id="meetmind",
+        self_building_discovery=self_building_discovery,
+        metrics_collector=metrics_collector
+    )
+    
+    # Initialize improvement notifier
+    improvement_notifier = ImprovementNotifier(
+        agent_id="meetmind",
+        self_building_discovery=self_building_discovery
+    )
+    
+    # Register dependent agents (agents that depend on MeetMind)
+    improvement_notifier.register_dependent_agent("agent_svea")
+    improvement_notifier.register_dependent_agent("felicias_finance")
+    
+    logger.info("Self-building integration initialized for MeetMind")
+except Exception as e:
+    logger.warning(f"Failed to initialize self-building integration: {e}")
+    self_building_discovery = None
+    metrics_collector = None
+    improvement_coordinator = None
+    improvement_notifier = None
+
 mcp = FastMCP(
     name="Meetmind MCP Server",
     host=os.getenv("MCP_HOST", "0.0.0.0"),
@@ -113,6 +165,38 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add metrics collection middleware
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    """Middleware to collect request metrics."""
+    start_time = datetime.now(timezone.utc)
+    status_code = 200
+    
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    except Exception as e:
+        status_code = 500
+        raise
+    finally:
+        if metrics_collector:
+            latency_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            
+            await metrics_collector.record_request(
+                endpoint=request.url.path,
+                method=request.method,
+                status_code=status_code,
+                latency_ms=latency_ms
+            )
+            
+            if status_code >= 400:
+                await metrics_collector.record_error(
+                    error_type=f"HTTP_{status_code}",
+                    error_message=f"Request failed with status {status_code}",
+                    endpoint=request.url.path
+                )
 
 app.mount("/mcp", mcp.sse_app(mount_path="/mcp"))
 
@@ -698,12 +782,221 @@ async def fetch_meeting_snapshot(meeting_id: str) -> Dict[str, Any]:
 @app.get("/meetmind/health")
 async def health_check(_: str = Depends(verify_api_key)) -> Dict[str, Any]:
     """Health probe for deployment checks."""
-    return {
+    health_data = {
         "status": "ok",
         "bedrock_ready": _bedrock_ready(),
         "stored_meetings": await meeting_memory.list_meetings(),
         "mcp_tools_handler_ready": mcp_tools_handler is not None,
         "registered_tools": len(mcp_tools_handler.tools) if mcp_tools_handler else 0,
+    }
+    
+    # Add self-building agent status
+    if self_building_discovery:
+        health_data["self_building_agent"] = {
+            "discovered": self_building_discovery.is_discovered(),
+            "endpoint": self_building_discovery.get_endpoint()
+        }
+    
+    return health_data
+
+
+@app.get("/meetmind/self-building/status")
+async def get_self_building_status(_: str = Depends(verify_api_key)) -> Dict[str, Any]:
+    """Get self-building agent status and capabilities."""
+    if not self_building_discovery:
+        return {
+            "available": False,
+            "error": "Self-building discovery not initialized"
+        }
+    
+    if not self_building_discovery.is_discovered():
+        # Try to discover
+        discovered = await self_building_discovery.discover_self_building_agent()
+        if not discovered:
+            return {
+                "available": False,
+                "error": "Self-building agent not found in registry"
+            }
+    
+    # Get health status
+    health = await self_building_discovery.check_self_building_health()
+    
+    return {
+        "available": True,
+        "endpoint": self_building_discovery.get_endpoint(),
+        "health": health,
+        "agent_info": self_building_discovery.self_building_agent_info
+    }
+
+
+@app.post("/meetmind/self-building/trigger-improvement")
+async def trigger_self_improvement(
+    request: Dict[str, Any],
+    _: str = Depends(verify_api_key)
+) -> Dict[str, Any]:
+    """Trigger an improvement cycle for MeetMind agent."""
+    if not self_building_discovery or not self_building_discovery.is_discovered():
+        raise HTTPException(
+            status_code=503,
+            detail="Self-building agent not available"
+        )
+    
+    analysis_window_hours = request.get("analysis_window_hours", 24)
+    max_improvements = request.get("max_improvements", 3)
+    tenant_id = request.get("tenant_id")
+    
+    result = await self_building_discovery.trigger_improvement_cycle(
+        analysis_window_hours=analysis_window_hours,
+        max_improvements=max_improvements,
+        tenant_id=tenant_id,
+        api_key=API_KEY
+    )
+    
+    return result
+
+
+@app.get("/meetmind/metrics/summary")
+async def get_metrics_summary(_: str = Depends(verify_api_key)) -> Dict[str, Any]:
+    """Get summary of collected metrics."""
+    if not metrics_collector:
+        return {
+            "available": False,
+            "error": "Metrics collector not initialized"
+        }
+    
+    return metrics_collector.get_summary()
+
+
+@app.post("/meetmind/improvements/schedule")
+async def schedule_improvement(
+    request: Dict[str, Any],
+    _: str = Depends(verify_api_key)
+) -> Dict[str, Any]:
+    """Schedule an improvement deployment."""
+    if not improvement_coordinator:
+        raise HTTPException(
+            status_code=503,
+            detail="Improvement coordinator not available"
+        )
+    
+    improvement_id = request.get("improvement_id")
+    deployment_window_hours = request.get("deployment_window_hours", 24)
+    prefer_low_traffic = request.get("prefer_low_traffic", True)
+    tenant_id = request.get("tenant_id")
+    
+    if not improvement_id:
+        raise HTTPException(status_code=400, detail="improvement_id is required")
+    
+    result = await improvement_coordinator.schedule_improvement_deployment(
+        improvement_id=improvement_id,
+        deployment_window_hours=deployment_window_hours,
+        prefer_low_traffic=prefer_low_traffic,
+        tenant_id=tenant_id
+    )
+    
+    return result
+
+
+@app.get("/meetmind/improvements/readiness")
+async def check_improvement_readiness(_: str = Depends(verify_api_key)) -> Dict[str, Any]:
+    """Check if agent is ready for improvement deployment."""
+    if not improvement_coordinator:
+        raise HTTPException(
+            status_code=503,
+            detail="Improvement coordinator not available"
+        )
+    
+    return await improvement_coordinator.check_deployment_readiness()
+
+
+@app.get("/meetmind/improvements/scheduled")
+async def get_scheduled_improvements(_: str = Depends(verify_api_key)) -> Dict[str, Any]:
+    """Get all scheduled improvement deployments."""
+    if not improvement_coordinator:
+        raise HTTPException(
+            status_code=503,
+            detail="Improvement coordinator not available"
+        )
+    
+    return {
+        "scheduled_deployments": improvement_coordinator.get_scheduled_deployments()
+    }
+
+
+@app.post("/meetmind/improvements/broadcast")
+async def broadcast_improvement(
+    request: Dict[str, Any],
+    _: str = Depends(verify_api_key)
+) -> Dict[str, Any]:
+    """Broadcast an improvement deployment to dependent agents."""
+    if not improvement_notifier:
+        raise HTTPException(
+            status_code=503,
+            detail="Improvement notifier not available"
+        )
+    
+    improvement_id = request.get("improvement_id")
+    improvement_type = request.get("improvement_type", "enhancement")
+    affected_components = request.get("affected_components", [])
+    change_summary = request.get("change_summary", "")
+    migration_guide = request.get("migration_guide")
+    breaking_changes = request.get("breaking_changes", False)
+    metadata = request.get("metadata", {})
+    
+    if not improvement_id:
+        raise HTTPException(status_code=400, detail="improvement_id is required")
+    
+    if not change_summary:
+        raise HTTPException(status_code=400, detail="change_summary is required")
+    
+    result = await improvement_notifier.broadcast_improvement(
+        improvement_id=improvement_id,
+        improvement_type=improvement_type,
+        affected_components=affected_components,
+        change_summary=change_summary,
+        migration_guide=migration_guide,
+        breaking_changes=breaking_changes,
+        metadata=metadata
+    )
+    
+    return result
+
+
+@app.post("/meetmind/improvements/notify")
+async def receive_improvement_notification(
+    notification: Dict[str, Any],
+    _: str = Depends(verify_api_key)
+) -> Dict[str, Any]:
+    """Receive an improvement notification from another agent."""
+    if not improvement_notifier:
+        raise HTTPException(
+            status_code=503,
+            detail="Improvement notifier not available"
+        )
+    
+    result = await improvement_notifier.receive_notification(notification)
+    return result
+
+
+@app.get("/meetmind/improvements/notifications")
+async def get_improvement_notifications(
+    limit: Optional[int] = 10,
+    agent_id: Optional[str] = None,
+    _: str = Depends(verify_api_key)
+) -> Dict[str, Any]:
+    """Get received improvement notifications."""
+    if not improvement_notifier:
+        raise HTTPException(
+            status_code=503,
+            detail="Improvement notifier not available"
+        )
+    
+    return {
+        "notifications": improvement_notifier.get_received_notifications(
+            limit=limit,
+            agent_id=agent_id
+        ),
+        "summary": improvement_notifier.get_notification_summary()
     }
 
 
@@ -1327,6 +1620,50 @@ for event in client.events():
             """
         }
     }
+
+
+# ---------------------------------------------------------------------------
+# Application lifecycle events
+# ---------------------------------------------------------------------------
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize connections on startup."""
+    logger.info("MeetMind MCP Server starting up...")
+    
+    # Discover self-building agent
+    if self_building_discovery:
+        try:
+            discovered = await self_building_discovery.discover_self_building_agent()
+            if discovered:
+                logger.info("Successfully discovered self-building agent")
+            else:
+                logger.warning("Self-building agent not found - will retry on demand")
+        except Exception as e:
+            logger.error(f"Error during self-building agent discovery: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown."""
+    logger.info("MeetMind MCP Server shutting down...")
+    
+    # Flush metrics
+    if metrics_collector:
+        try:
+            await metrics_collector.close()
+            logger.info("Metrics collector closed")
+        except Exception as e:
+            logger.error(f"Error closing metrics collector: {e}")
+    
+    # Close self-building discovery client
+    if self_building_discovery:
+        try:
+            await self_building_discovery.close()
+            logger.info("Self-building discovery client closed")
+        except Exception as e:
+            logger.error(f"Error closing self-building discovery: {e}")
 
 
 # ---------------------------------------------------------------------------
