@@ -38,7 +38,7 @@ python deploy_llm_infrastructure.py \
 # Update OpenAI API key
 aws secretsmanager put-secret-value \
   --secret-id happyos/openai-api-key-prod \
-  --secret-string "sk-YOUR_ACTUAL_OPENAI_KEY"
+  --secret-string "OPENAI_KEY_HERE"
 
 # Update Google API key (optional)
 aws secretsmanager put-secret-value \

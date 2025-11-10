@@ -154,7 +154,7 @@ python deploy_llm_infrastructure.py --environment prod --region us-east-1
 # 2. Update API keys in Secrets Manager
 aws secretsmanager put-secret-value \
   --secret-id happyos/openai-api-key-prod \
-  --secret-string "sk-YOUR_ACTUAL_KEY"
+  --secret-string "OPENAI_KEY_HERE"
 
 # 3. Validate deployment
 python validate_llm_deployment.py --environment prod --region us-east-1
