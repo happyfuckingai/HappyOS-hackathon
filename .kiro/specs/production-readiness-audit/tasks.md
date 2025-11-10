@@ -58,7 +58,7 @@
   - Verifiera health checks genom att söka efter `/health` endpoints
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [-] 8. Implementera Documentation Auditor
+- [x] 8. Implementera Documentation Auditor
   - Skapa `DocumentationAuditor` klass
   - Verifiera README-filer för varje agentteam
   - Kontrollera API-dokumentation genom att analysera `backend/core/llm/README.md`

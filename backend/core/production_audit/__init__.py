@@ -13,6 +13,7 @@ from .scoring import ScoringEngine
 from .llm_integration_auditor import LLMIntegrationAuditor
 from .monitoring_observability_auditor import MonitoringObservabilityAuditor
 from .security_compliance_auditor import SecurityComplianceAuditor
+from .documentation_auditor import DocumentationAuditor
 
 __all__ = [
     "AuditModule",
@@ -26,4 +27,5 @@ __all__ = [
     "LLMIntegrationAuditor",
     "MonitoringObservabilityAuditor",
     "SecurityComplianceAuditor",
+    "DocumentationAuditor",
 ]
