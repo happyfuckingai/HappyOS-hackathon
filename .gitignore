@@ -12,3 +12,4 @@
 # Bygg-/genererat du ej vill tracka
 backend/core/self_building/
 
+backend/core/inspiration/

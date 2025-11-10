@@ -1,0 +1,2 @@
+# Ta bort alla strängar som ser ut som OpenAI-nycklar
+regex:sk-[A-Za-z0-9_-]{20,} ==> REMOVED_SECRET
