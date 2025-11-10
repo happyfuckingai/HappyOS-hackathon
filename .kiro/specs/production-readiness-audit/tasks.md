@@ -49,7 +49,7 @@
   - Kontrollera PII-hantering genom att söka efter PII-masking implementation
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [-] 7. Implementera Deployment Readiness Auditor
+- [x] 7. Implementera Deployment Readiness Auditor
   - Skapa `DeploymentReadinessAuditor` klass
   - Verifiera Docker images genom att analysera Dockerfile-filer
   - Kontrollera AWS CDK kod genom att analysera `backend/infrastructure/aws/iac/`
@@ -58,7 +58,7 @@
   - Verifiera health checks genom att söka efter `/health` endpoints
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 8. Implementera Documentation Auditor
+- [-] 8. Implementera Documentation Auditor
   - Skapa `DocumentationAuditor` klass
   - Verifiera README-filer för varje agentteam
   - Kontrollera API-dokumentation genom att analysera `backend/core/llm/README.md`

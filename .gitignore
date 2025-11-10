@@ -1,11 +1,14 @@
-# Ignore Python cache and compiled files
-__pycache__/
+
+*.pyo
+# Python cache/bytecode
+**/*pycache*/
 *.py[cod]
 *.pyo
 
-# Ignore environment and editor files
+# Miljö/editor
 .env
 .vscode/
 
-# Ignore build artifacts
+# Bygg-/genererat du ej vill tracka
 backend/core/self_building/
+
